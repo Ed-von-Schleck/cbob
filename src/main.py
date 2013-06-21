@@ -26,7 +26,7 @@ def _build(args):
 
 def _configure(args):
     import src.configure
-    src.configure.configure(args.target, args.auto)
+    src.configure.configure(args.target, args.auto, args.force, args.compiler, args.linker, args.bindir)
 
 def main():
     parser = argparse.ArgumentParser(description="cbob builds your project.", prog="cbob")
@@ -53,13 +53,16 @@ def main():
     parser_show.set_defaults(func=_show)
 
     parser_build = subparsers.add_parser("build", help="Build one, many or all targets.")
-    parser_build.add_argument("-t", "--target", nargs="+", help="The target(s) to build (omitting means 'all').")
+    parser_build.add_argument("target", help="The target to build.")
     parser_build.set_defaults(func=_build)
 
     parser_configure = subparsers.add_parser("configure", help="Set parameter(s) for a target.")
     parser_configure.add_argument("target", help="The target to configure.")
     parser_configure.add_argument("-a", "--auto", action="store_true", help="Let cbob figure things out automatically.")
+    parser_configure.add_argument("-f", "--force", action="store_true", help="Force overwriting previous configuration when '--auto' is used.")
     parser_configure.add_argument("-c", "--compiler", nargs=1, help="The path to the compiler binary (e.g. '--compiler=\"/usr/bin/gcc\"').")
+    parser_configure.add_argument("-l", "--linker", nargs=1, help="The path to the compiler binary (e.g. '--linker=\"/usr/bin/ld\"').")
+    parser_configure.add_argument("-b", "--bindir", nargs=1, help="The path to the output directory for binaries (e.g. '--bindir=\"bin/\"').")
     parser_configure.add_argument("--cflags", nargs="*", help="The CFLAGS to use (e.g. '--cflags=\"$CFLAGS\"').")
     parser_configure.add_argument("--cxxflags", nargs="*", help="The CXXFLAGS to use (e.g. '--cxxflags=\"$CXXFLAGS\"').")
     parser_configure.add_argument("--ldflags", nargs="*", help="The LDFLAGS to use (e.g. '--ldflags=\"$LDFLAGS\"').")
