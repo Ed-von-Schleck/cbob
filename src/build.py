@@ -71,10 +71,7 @@ def build(target_name):
         for dep in node.depends_on:
             mtime = os.path.getmtime(dep.file_path)
             if mtime > object_mtime:
-                if dep.file_path in dirty_sources:
-                    dep.write_dirty_recursively(dirty_sources)
-                else:
-                    node.write_dirty_recursively(dirty_sources)
+                node.write_dirty_recursively(dirty_sources)
                 break
 
     for file_path in dirty_sources: 
