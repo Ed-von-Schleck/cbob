@@ -31,7 +31,7 @@ def get_sources_dir(target_name):
     target_dir = get_target_dir(target_name)
     return None if target_dir is None else os.path.join(target_dir, "sources")
 
-def get_build_dir(target_name):
+def get_build_dir():
     project_root = get_project_root()
     return None if project_root is None else os.path.join(project_root, ".cbob", ".build")
 
@@ -50,3 +50,25 @@ def get_bindir_symlink(target_name):
 def get_gcc_path():
     import subprocess
     return subprocess.check_output(["which", "gcc"]).strip()
+
+def mangle_path(path):
+    project_root = get_project_root()
+    abs_actual_file_path = os.path.abspath(path)
+    norm_actual_file_path = os.path.normpath(os.path.relpath(abs_actual_file_path, project_root))
+    return norm_actual_file_path.replace(os.sep, "_")
+
+def demangle_path_rel(mangled_path):
+    return mangled_path.replace("_", os.sep)
+
+def demangle_path_abs(mangled_path):
+    path_rel = demangle_path_rel(mangled_path)
+    return os.path.join(project_root, path_rel)
+
+def get_object_file_path(path):
+    mangled_file_name = mangle_path(path)
+    build_dir = get_build_dir()
+    return os.path.join(build_dir, os.path.splitext(mangled_file_name)[0] + ".o")
+
+def get_source_path_from_symlink(target_name, symlink_path):
+    sources_dir = get_sources_dir(target_name)
+    return os.path.normpath(os.path.join(sources_dir, os.readlink(os.path.join(sources_dir, symlink_path))))

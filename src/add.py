@@ -17,9 +17,8 @@ def add(target_name, file_names):
             print("WARNING: No match for '{}'.".format(file_name))
             continue
         for actual_file_name in file_list:
-            abs_actual_file_path = os.path.abspath(actual_file_name)
-            rel_actual_file_path = os.path.normpath(os.path.relpath(abs_actual_file_path, project_root))
-            mangled_file_name = rel_actual_file_path.replace(os.sep, "_")
+            #TODO: cleanup
+            mangled_file_name = pathhelpers.mangle_path(actual_file_name)
             symlink_path = os.path.join(sources_dir, mangled_file_name)
             if os.path.islink(symlink_path):
                 #TODO: only print with some kind of verbosity level
@@ -27,8 +26,9 @@ def add(target_name, file_names):
                 continue
             added_file_names.append(actual_file_name)
 
+            abs_actual_file_path = os.path.abspath(actual_file_name)
             rel_actual_symlink_path = os.path.normpath(os.path.relpath(abs_actual_file_path, sources_dir))
-            os.symlink(rel_actual_symlink_path, os.path.join(sources_dir, mangled_file_name))
+            os.symlink(rel_actual_symlink_path, symlink_path)
 
     added_files_count = len(added_file_names)
     #TODO: only print with some kind of verbosity level
