@@ -77,7 +77,7 @@
 
 <p>Building a target means building all source files that are added to it. You can use wildcards like <code>src/*.c</code>, but it will <em>not</em> magically add files you add to <code>src/</code> after that (it does not track the directory, only files). <code>cbob</code> does not accept non-standard file endings. There's no need to add header files or other dependencies. To add one or more files, do</p>
 
-<div class="highlight"><pre>cbob new &lt;target-name&gt; &lt;path-to-source-file&gt; <span class="o">[</span>&lt;path-to-other-source-file&gt; ...<span class="o">]</span>
+<div class="highlight"><pre>cbob add &lt;target-name&gt; &lt;path-to-source-file&gt; <span class="o">[</span>&lt;path-to-other-source-file&gt; ...<span class="o">]</span>
 </pre></div>
 
 <h4>
