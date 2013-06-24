@@ -1,6 +1,3 @@
-cbob
-====
-
 `cbob` builds your C/C++ projects. It does automatic dependency resolution (well, with the help of gcc, but still) of your source files. Contrary to most build tools out there, it does *not* need configuration files - you use it solely over the CLI (it might grow a GUI at some time). `cbob` tries to do as little magic as possible, prefers explicicity over implicity and ease of use over being the most generic tool out there.
 
 `cbob` is far from complete at the moment, but here's what works:
@@ -70,14 +67,14 @@ Planned Features
 Maybe-Features
 --------------
 
-* Target overlays: A target that just overlays some option (e.g. exchanging `-Og` with `-O2` in the CFLAGS), but transparently follows it's parent target's changes (e.g. think of a `release` overlay for the `development` target). So for, I haven't had an idea how to implement this elegantly.
+* Target overlays: A target that just overlays some option (e.g. exchanging `-Og` with `-O2` in the CFLAGS), but transparently follows it's parent target's changes (e.g. think of a `release` overlay for the `development` target). So far, I haven't had an idea how to implement this elegantly.
 * Support for similar languages, e.g. D or Rust
 * Sub-projects: Let `cbob` handle projects in subdirectories (think of git submodules, and stuff like pre-checks as `cbob`-projects, hosted on github, as easily re-usable recipies).
 
 Non-Features
 ------------
 
-Things that are out of scope (though I may be convinced otherwise):
+Things that are out of scope (though you may try to convince me otherwise):
 * Support for every language out there (but maybe support for doing, say, Python-modules written in C).
 * Support for system-wide installation (though I like `cbob` to be able to play nice with make/autotools).
 
@@ -87,3 +84,10 @@ How it works
 Just look in your `.cbob` directory. Every target is a subdirectory of `.cbob/targets`. Every source file is a symlink in its `sources` subdirectory. The source's file path relative to the project root is mangled (`/` replaced with `_`) so that it is a flat list. Similarly, the configured compiler is just a symlink, and so on.
 
 When `cbob` builds a target, it first creates a bi-directional graph of dependencies by parsing gcc's output when invoked with `-M`. Files with dependencies (and a file has always a dependency on itself) older than the corresponding object file in `.cbob/build` are marked for recompilation, as well as all source files that depend (directly or indirectly) on our file in question (bi-directional, remember?).
+
+Feedback
+--------
+
+As you obviously just stumbled over this very new piece of software, I am very much interested in your opinion about it (try it - it ist usable? How is it better/worse than other tools? Is it fast enough? Is it documented enough? Can it do enough? Is it cool enough?). Just open an issue on github and drop a line or two there.
+
+Better yet, contribute to it. It is written in Python (though in a style that lets me transition to C; I haven't made up my mind about it yet), so it's fun. I'll gladly take pull requests.

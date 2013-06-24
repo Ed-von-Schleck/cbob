@@ -85,7 +85,3 @@ def configure(target_name, auto, force, compiler, linker, bindir):
             os.symlink(linker, linker_symlink_path)
         if bindir is not None:
             os.symlink(bindir, bindir_symlink_path)
-            
-
-
-
