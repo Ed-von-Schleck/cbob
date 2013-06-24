@@ -75,14 +75,16 @@ def configure(target_name, auto, force, compiler, linker, bindir):
             else:
                 if bindir_symlink_exists and force:
                     os.unlink(bindir_symlink_path)
-                os.symlink(project_root, bindir_symlink_path)
+                assumed_bindir = os.path.join(project_root, "bin")
+                bindir_auto = assumed_bindir if os.path.isdir(assumed_bindir) else project_root
+                os.symlink(bindir_auto, bindir_symlink_path)
     else: # manual configuration
         if compiler is not None:
             os.symlink(compiler, compiler_symlink_path)
         if linker is not None:
             os.symlink(linker, linker_symlink_path)
         if bindir is not None:
-            os.symlink(project_root, bindir_symlink_path)
+            os.symlink(bindir, bindir_symlink_path)
             
 
 
