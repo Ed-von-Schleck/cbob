@@ -21,8 +21,21 @@ class _Node(object):
         if self.file_path not in dirty_sources:
             for node in self.depended_on_by:
                 if node is not self:
-                    node.write_dirty_recursively()
+                    node.write_dirty_recursively(dirty_sources)
             dirty_sources.add(self.file_path)
+
+    def check_dependencys_recursively(self, object_mtime, dirty_sources):
+        mtime = os.path.getmtime(self.file_path)
+        if mtime > object_mtime:
+            self.write_dirty_recursively(dirty_sources)
+            return True
+        else:
+            for dep in self.depends_on:
+                if dep is not self:
+                    done = dep.check_dependencys_recursively(object_mtime, dirty_sources)
+                    if done:
+                        return True
+            return False
 
     def clear_depends_on(self):
         for node in self.depends_on:
@@ -33,7 +46,7 @@ class _Node(object):
 def build(target_name):
     sources_dir = pathhelpers.get_sources_dir(target_name)
     compiler_path = os.readlink(pathhelpers.get_compiler_symlink(target_name))
-    linker_path = os.readlink(pathhelpers.get_linker_symlink(target_name))
+    #linker_path = os.readlink(pathhelpers.get_linker_symlink(target_name))
     bindir_path = os.readlink(pathhelpers.get_bindir_symlink(target_name))
     gcc_path = pathhelpers.get_gcc_path()
 
@@ -68,12 +81,9 @@ def build(target_name):
             continue
         # checking only the file_path's mtime is not enough; there are dependencies that are not
         # sources (like headers) and don't correspond to an object file - these wouldn't be checked
-        for dep in node.depends_on:
-            mtime = os.path.getmtime(dep.file_path)
-            if mtime > object_mtime:
-                node.write_dirty_recursively(dirty_sources)
-                break
+        node.check_dependencys_recursively(object_mtime, dirty_sources)
 
+    # compile
     for file_path in dirty_sources: 
         object_file_path = pathhelpers.get_object_file_path(file_path)
 
@@ -83,6 +93,7 @@ def build(target_name):
         if return_code != 0:
             exit(return_code)
 
+    # link
     if dirty_sources:
         object_file_names = [pathhelpers.get_object_file_path(file_path) for file_path in real_sources_path_list]
         cmd = [compiler_path, "-o", os.path.join(bindir_path, target_name)] + object_file_names
