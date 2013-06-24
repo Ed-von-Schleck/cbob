@@ -35,7 +35,7 @@ cbob new <target-name>
 
 #### Adding a file to a target ####
 
-Building a target means building all source files that are added to it. You can use wildcards like `src/*.c`, but it will *not* magically add files you add to `src/` after that (it does not track the directory, only files). `cbob` currently accepts non-standard file endings, but your compiler may complain. To add one or many files, do
+Building a target means building all source files that are added to it. You can use wildcards like `src/*.c`, but it will *not* magically add files you add to `src/` after that (it does not track the directory, only files). `cbob` does not accept non-standard file endings. There's no need to add header files or other dependencies. To add one or more files, do
 ```bash
 cbob new <target-name> <path-to-source-file> [<path-to-other-source-file> ...]
 ```

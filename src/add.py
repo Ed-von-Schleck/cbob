@@ -5,6 +5,8 @@ import os.path
 import src.checks as checks
 import src.pathhelpers as pathhelpers
 
+FILE_ENDINGS = frozenset([".c", ".cpp", ".cxx", ".c++", ".cc"])
+
 @checks.requires_target_exists
 def add(target_name, file_names):
     sources_dir = pathhelpers.get_sources_dir(target_name)
@@ -14,12 +16,15 @@ def add(target_name, file_names):
         file_name = os.path.expanduser(file_name)
         file_list = glob.glob(file_name)
         if not file_list:
-            print("WARNING: No match for '{}'.".format(file_name))
+            print("No match for '{}'.".format(file_name))
             continue
         for actual_file_name in file_list:
             #TODO: cleanup
             mangled_file_name = pathhelpers.mangle_path(actual_file_name)
             symlink_path = os.path.join(sources_dir, mangled_file_name)
+            if not os.path.splitext(actual_file_name)[1] in FILE_ENDINGS:
+                print("'{}' does not seem to be a C/C++ source file (ending is not one of {}).".format(actual_file_name, ", ".join(FILE_ENDINGS)))
+                continue
             if os.path.islink(symlink_path):
                 #TODO: only print with some kind of verbosity level
                 print("File '{}' is already a source in target '{}'.".format(actual_file_name, target_name))
