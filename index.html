@@ -75,7 +75,7 @@
 <h4>
 <a name="adding-a-file-to-a-target" class="anchor" href="#adding-a-file-to-a-target"><span class="octicon octicon-link"></span></a>Adding a file to a target</h4>
 
-<p>Building a target means building all source files that are added to it. You can use wildcards like <code>src/*.c</code>, but it will <em>not</em> magically add files you add to <code>src/</code> after that (it does not track the directory, only files). <code>cbob</code> does not accept non-standard file endings. There's no need to add header files or other dependencies. To add one or more files, do</p>
+<p>Building a target means building all source files that have been added to it. You can use wildcards like <code>src/*.c</code>, but it will <em>not</em> magically add files you add to <code>src/</code> after that (it does not track the directory, only files). <code>cbob</code> does not accept non-standard file endings. There's no need to add header files or other dependencies. To add one or more files, do</p>
 
 <div class="highlight"><pre>cbob add &lt;target-name&gt; &lt;path-to-source-file&gt; <span class="o">[</span>&lt;path-to-other-source-file&gt; ...<span class="o">]</span>
 </pre></div>
@@ -127,7 +127,9 @@
 
 <p>Just look in your <code>.cbob</code> directory. Every target is a subdirectory of <code>.cbob/targets</code>. Every source file is a symlink in its <code>sources</code> subdirectory. The source's file path relative to the project root is mangled (<code>/</code> replaced with <code>_</code>) so that it is a flat list. Similarly, the configured compiler is just a symlink, and so on.</p>
 
-<p>When <code>cbob</code> builds a target, it first creates a bi-directional graph of dependencies by parsing gcc's output when invoked with <code>-M</code>. Files with dependencies (and a file has always a dependency on itself) older than the corresponding object file in <code>.cbob/build</code> are marked for recompilation, as well as all source files that depend (directly or indirectly) on our file in question (bi-directional, remember?).</p>
+<p>When <code>cbob</code> build a target, it first assembles a list of all source files for that target (reading the symlinks in the <code>source</code> subdirectory). Then it creates a directed acyclical graph (DAG) from the dependencies (well, hopefully acyclical - it will fail noisily if it isn't). The nodes are then partially ordered via a topological sort, and iterated over from the end points first. For every node, it checks if it's a source file (and not a header), and if it is, <code>cbob</code> marks it as <em>dirty</em> if it's <code>mtime</code> is newer than the corresponding object file. Then, <code>cbob</code> will update the <code>mtime</code> of nodes depending on our node in question with <code>max(node, child_node)</code>.</p>
+
+<p>That's it. The dirty nodes will be recompiled, and if there is at least on dirty node, the linking step will be performed.</p>
 
 <h2>
 <a name="feedback" class="anchor" href="#feedback"><span class="octicon octicon-link"></span></a>Feedback</h2>
