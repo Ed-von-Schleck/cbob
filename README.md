@@ -35,7 +35,7 @@ cbob new <target-name>
 
 #### Adding a file to a target ####
 
-Building a target means building all source files that are added to it. You can use wildcards like `src/*.c`, but it will *not* magically add files you add to `src/` after that (it does not track the directory, only files). `cbob` does not accept non-standard file endings. There's no need to add header files or other dependencies. To add one or more files, do
+Building a target means building all source files that have been added to it. You can use wildcards like `src/*.c`, but it will *not* magically add files you add to `src/` after that (it does not track the directory, only files). `cbob` does not accept non-standard file endings. There's no need to add header files or other dependencies. To add one or more files, do
 ```bash
 cbob add <target-name> <path-to-source-file> [<path-to-other-source-file> ...]
 ```
@@ -83,7 +83,9 @@ How it works
 
 Just look in your `.cbob` directory. Every target is a subdirectory of `.cbob/targets`. Every source file is a symlink in its `sources` subdirectory. The source's file path relative to the project root is mangled (`/` replaced with `_`) so that it is a flat list. Similarly, the configured compiler is just a symlink, and so on.
 
-When `cbob` builds a target, it first creates a bi-directional graph of dependencies by parsing gcc's output when invoked with `-M`. Files with dependencies (and a file has always a dependency on itself) older than the corresponding object file in `.cbob/build` are marked for recompilation, as well as all source files that depend (directly or indirectly) on our file in question (bi-directional, remember?).
+When `cbob` build a target, it first assembles a list of all source files for that target (reading the symlinks in the `source` subdirectory). Then it creates a directed acyclical graph (DAG) from the dependencies (well, hopefully acyclical - it will fail noisily if it isn't). The nodes are then partially ordered via a topological sort, and iterated over from the end points first. For every node, it checks if it's a source file (and not a header), and if it is, `cbob` marks it as *dirty* if it's `mtime` is newer than the corresponding object file. Then, `cbob` will update the `mtime` of nodes depending on our node in question with `max(node, child_node)`.
+
+That's it. The dirty nodes will be recompiled, and if there is at least on dirty node, the linking step will be performed.
 
 Feedback
 --------
