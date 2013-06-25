@@ -96,7 +96,7 @@
 <div class="highlight"><pre>cbob build &lt;target-name&gt;
 </pre></div>
 
-<p>and you will end up with a binary in the directory you configured for your output (if you chose to auto-configure it's either <code>bin/</code> if it's there or the project's root).</p>
+<p>and you will end up with a binary in the directory you configured for your output (if you chose to auto-configure it's either <code>bin/</code> if it's there or the project's root). It will automatically use as many processes as there are cpus (or you can specify the number manually with <code>-j</code>/<code>--jobs</code>).</p>
 
 <h2>
 <a name="planned-features" class="anchor" href="#planned-features"><span class="octicon octicon-link"></span></a>Planned Features</h2>
@@ -127,7 +127,7 @@
 
 <p>Just look in your <code>.cbob</code> directory. Every target is a subdirectory of <code>.cbob/targets</code>. Every source file is a symlink in its <code>sources</code> subdirectory. The source's file path relative to the project root is mangled (<code>/</code> replaced with <code>_</code>) so that it is a flat list. Similarly, the configured compiler is just a symlink, and so on.</p>
 
-<p>When <code>cbob</code> build a target, it first assembles a list of all source files for that target (reading the symlinks in the <code>source</code> subdirectory). Then it creates a directed acyclical graph (DAG) from the dependencies (well, hopefully acyclical - it will fail noisily if it isn't). The nodes are then partially ordered via a topological sort, and iterated over from the end points first. For every node, it checks if it's a source file (and not a header), and if it is, <code>cbob</code> marks it as <em>dirty</em> if it's <code>mtime</code> is newer than the corresponding object file. Then, <code>cbob</code> will update the <code>mtime</code> of nodes depending on our node in question with <code>max(node, child_node)</code>.</p>
+<p>When <code>cbob</code> build a target, it first assembles a list of all source files for that target (reading the symlinks in the <code>source</code> subdirectory). Then it creates a directed acyclical graph (DAG) from the dependencies (well, hopefully acyclical - it will fail noisily if it isn't). The nodes are then partially ordered via a topological sort, and iterated over from the end points first. For every node, it checks if it's a source file (and not a header), and if it is, <code>cbob</code> marks it as <em>dirty</em> if it's <code>mtime</code> is newer than the corresponding object file. Then, <code>cbob</code> will update the <code>mtime</code> of nodes directly depending on our node in question with <code>max(node, child_node)</code>.</p>
 
 <p>That's it. The dirty nodes will be recompiled, and if there is at least on dirty node, the linking step will be performed.</p>
 
