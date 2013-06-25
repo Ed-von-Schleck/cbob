@@ -53,7 +53,7 @@ Simply do
 ```bash
 cbob build <target-name>
 ```
-and you will end up with a binary in the directory you configured for your output (if you chose to auto-configure it's either `bin/` if it's there or the project's root).
+and you will end up with a binary in the directory you configured for your output (if you chose to auto-configure it's either `bin/` if it's there or the project's root). It will automatically use as many processes as there are cpus (or you can specify the number manually with `-j`/`--jobs`).
 
 Planned Features
 ----------------
@@ -83,7 +83,7 @@ How it works
 
 Just look in your `.cbob` directory. Every target is a subdirectory of `.cbob/targets`. Every source file is a symlink in its `sources` subdirectory. The source's file path relative to the project root is mangled (`/` replaced with `_`) so that it is a flat list. Similarly, the configured compiler is just a symlink, and so on.
 
-When `cbob` build a target, it first assembles a list of all source files for that target (reading the symlinks in the `source` subdirectory). Then it creates a directed acyclical graph (DAG) from the dependencies (well, hopefully acyclical - it will fail noisily if it isn't). The nodes are then partially ordered via a topological sort, and iterated over from the end points first. For every node, it checks if it's a source file (and not a header), and if it is, `cbob` marks it as *dirty* if it's `mtime` is newer than the corresponding object file. Then, `cbob` will update the `mtime` of nodes depending on our node in question with `max(node, child_node)`.
+When `cbob` build a target, it first assembles a list of all source files for that target (reading the symlinks in the `source` subdirectory). Then it creates a directed acyclical graph (DAG) from the dependencies (well, hopefully acyclical - it will fail noisily if it isn't). The nodes are then partially ordered via a topological sort, and iterated over from the end points first. For every node, it checks if it's a source file (and not a header), and if it is, `cbob` marks it as *dirty* if it's `mtime` is newer than the corresponding object file. Then, `cbob` will update the `mtime` of nodes directly depending on our node in question with `max(node, child_node)`.
 
 That's it. The dirty nodes will be recompiled, and if there is at least on dirty node, the linking step will be performed.
 

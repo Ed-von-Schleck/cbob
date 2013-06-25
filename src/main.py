@@ -22,7 +22,7 @@ def _show(args):
 
 def _build(args):
     import src.build
-    src.build.build(args.target)
+    src.build.build(args.target, args.jobs)
 
 def _configure(args):
     import src.configure
@@ -54,6 +54,7 @@ def main():
 
     parser_build = subparsers.add_parser("build", help="Build one, many or all targets.")
     parser_build.add_argument("target", help="The target to build.")
+    parser_build.add_argument("-j", "--jobs", nargs=1, type=int, help="The target to build.")
     parser_build.set_defaults(func=_build)
 
     parser_configure = subparsers.add_parser("configure", help="Set parameter(s) for a target.")
