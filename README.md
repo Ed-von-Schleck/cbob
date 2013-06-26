@@ -67,7 +67,7 @@ Planned Features
 Maybe-Features
 --------------
 
-* Target overlays: A target that just overlays some option (e.g. exchanging `-Og` with `-O2` in the CFLAGS), but transparently follows it's parent target's changes (e.g. think of a `release` overlay for the `development` target). So far, I haven't had an idea how to implement this elegantly.
+* Target overlays: A target that just overlays some option (e.g. exchanging `-Og` with `-O2` in the CFLAGS), but transparently follows its parent target's changes (e.g. think of a `release` overlay for the `development` target). So far, I haven't had an idea how to implement this elegantly.
 * Support for similar languages, e.g. D or Rust
 * Sub-projects: Let `cbob` handle projects in subdirectories (think of git submodules, and stuff like pre-checks as `cbob`-projects, hosted on github, as easily re-usable recipies).
 
