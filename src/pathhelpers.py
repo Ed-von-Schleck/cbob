@@ -31,9 +31,9 @@ def get_sources_dir(target_name):
     target_dir = get_target_dir(target_name)
     return None if target_dir is None else os.path.join(target_dir, "sources")
 
-def get_build_dir():
-    project_root = get_project_root()
-    return None if project_root is None else os.path.join(project_root, ".cbob", ".build")
+def get_objects_dir(target_name):
+    target_dir = get_target_dir(target_name)
+    return None if target_dir is None else os.path.join(target_dir, "objects")
 
 def get_compiler_symlink(target_name):
     target_dir = get_target_dir(target_name)
@@ -64,10 +64,14 @@ def demangle_path_abs(mangled_path):
     path_rel = demangle_path_rel(mangled_path)
     return os.path.join(project_root, path_rel)
 
-def get_object_file_path(path):
+def get_object_file_path(target_name, path):
     mangled_file_name = mangle_path(path)
-    build_dir = get_build_dir()
-    return os.path.join(build_dir, os.path.splitext(mangled_file_name)[0] + ".o")
+    objects_dir = get_objects_dir(target_name)
+    return None if objects_dir is None else os.path.join(objects_dir, os.path.splitext(mangled_file_name)[0] + ".o")
+
+def get_deps_file_path(target_name):
+    target_dir = get_target_dir(target_name)
+    return None if target_dir is None else os.path.join(target_dir, "deps")
 
 def get_source_path_from_symlink(target_name, symlink_path):
     sources_dir = get_sources_dir(target_name)

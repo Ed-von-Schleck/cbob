@@ -21,7 +21,7 @@ def add(target_name, file_names):
             #TODO: cleanup
             mangled_file_name = pathhelpers.mangle_path(actual_file_name)
             symlink_path = os.path.join(sources_dir, mangled_file_name)
-            if not os.path.splitext(actual_file_name)[1] in FILE_ENDINGS:
+            if not os.path.splitext(actual_file_name)[1] in SOURCE_FILE_EXTENSIONS:
                 print("'{}' does not seem to be a C/C++ source file (ending is not one of {}).".format(actual_file_name, ", ".join(SOURCE_FILE_EXTENSIONS)))
                 continue
             if os.path.islink(symlink_path):
