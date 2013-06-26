@@ -1,3 +1,4 @@
+import functools
 import locale
 import multiprocessing
 import os
@@ -56,6 +57,8 @@ def _compile(cmd):
     print(" ".join(cmd))
     return subprocess.call(cmd)
 
+check_output_all = functools.partial(subprocess.check_output, stderr=subprocess.STDOUT, universal_newlines=True)
+
 @checks.requires_configured
 def build(target_name, jobs):
     if jobs is not None:
@@ -70,21 +73,39 @@ def build(target_name, jobs):
 
     sources = frozenset([pathhelpers.get_source_path_from_symlink(target_name, source) for source in os.listdir(sources_dir)])
 
+    
     # build graph
     node_index = {}
+    for file_path in sources:
+        if file_path in node_index:
+            node = node_index[file_path]
+        else:
+            node = _Node(file_path, target_name, True)
+            node_index[file_path] = node
 
-    make_rules = pool.imap_unordered(subprocess.check_output, ([gcc_path, "-M", file_path] for file_path in sources))
-    for make_rule in make_rules:
-        make_rule = make_rule.decode(locale.getpreferredencoding())
-        object_name, sep, dep_rule = make_rule.partition(":")
-        dep_file_paths = [dep for dep in dep_rule.split() if dep != "\\"]
+        includes = check_output_all([gcc_path, "-H", "-w", "-E", "-P", file_path])
+        deps = (line for line in includes.split("\n") if line and line[0] == ".")
 
-        dep_node_index = {dep: node_index[dep] if dep in node_index else _Node(dep, target_name, dep in sources) for dep in dep_file_paths}
-        node_index.update(dep_node_index)
+        current_node = None
+        current_depth = None
+        parent_nodes_stack = [node]
+        for dep in deps:
+            dots, sep, rest = dep.partition(" ")
+            current_depth = len(dots)
+            dep_path = os.path.normpath(rest)
 
-        node = dep_node_index.pop(dep_file_paths[0])
-        node.set_depends_on(dep_node_index.values())
-    
+            if dep_path in node_index:
+                current_node = node_index[dep_path]
+            else:
+                current_node = _Node(dep_path, target_name, dep_path in sources)
+                node_index[dep_path] = current_node
+
+            parent_nodes_stack = parent_nodes_stack[:current_depth]
+            parent_nodes_stack[-1].depends_on.add(current_node)
+            current_node.depended_on_by.add(parent_nodes_stack[-1])
+            parent_nodes_stack.append(current_node)
+
+
     dirty_sources = []
     while len(node_index) != 0:
         file_path, node = node_index.popitem()

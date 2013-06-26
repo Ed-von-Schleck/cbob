@@ -1,3 +1,4 @@
+import locale
 import os
 import os.path
 
@@ -49,7 +50,7 @@ def get_bindir_symlink(target_name):
 
 def get_gcc_path():
     import subprocess
-    return subprocess.check_output(["which", "gcc"]).strip()
+    return subprocess.check_output(["which", "gcc"]).strip().decode(locale.getpreferredencoding())
 
 def mangle_path(path):
     project_root = get_project_root()
