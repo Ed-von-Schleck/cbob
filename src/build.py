@@ -14,7 +14,6 @@ class _Node(object):
         self.file_path = file_path
         self.last_change = os.path.getmtime(file_path)
         self.depends_on = set()
-        self.depended_on_by = set()
         self.is_source = is_source
         if is_source:
             try:
@@ -27,15 +26,9 @@ class _Node(object):
         self._being_visited = False
         self._visited = False
 
-    def set_depends_on(self, nodes):
-        self.depends_on = set(nodes)
-        for node in nodes:
-            node.depended_on_by.add(self)
-
     def mark_dirty_recursively(self, node_index, dirty_sources):
         for node in self.depends_on:
             self.last_change = max(node.mark_dirty_recursively(node_index, dirty_sources), self.last_change)
-            node.depended_on_by.remove(self)
         self.depends_on.clear()
         if self.file_path in node_index:
             del node_index[self.file_path]
@@ -45,12 +38,7 @@ class _Node(object):
         return self.last_change
 
     def clear(self):
-        for node in self.depends_on:
-            node.depended_on_by.remove(self)
         self.depends_on.clear()
-        for node in self.depended_on_by:
-            node.depends_on.remove(self)
-        self.depended_on_by.clear()
 
 
 def _compile(cmd):
@@ -102,7 +90,6 @@ def build(target_name, jobs):
 
             parent_nodes_stack = parent_nodes_stack[:current_depth]
             parent_nodes_stack[-1].depends_on.add(current_node)
-            current_node.depended_on_by.add(parent_nodes_stack[-1])
             parent_nodes_stack.append(current_node)
 
 
