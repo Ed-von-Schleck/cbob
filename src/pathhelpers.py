@@ -1,4 +1,3 @@
-import locale
 import os
 import os.path
 
@@ -50,7 +49,7 @@ def get_bindir_symlink(target_name):
 
 def get_gcc_path():
     import subprocess
-    return subprocess.check_output(["which", "gcc"]).strip().decode(locale.getpreferredencoding())
+    return subprocess.check_output(["which", "gcc"], universal_newlines=True).strip()
 
 def mangle_path(path):
     project_root = get_project_root()
@@ -77,3 +76,7 @@ def get_deps_file_path(target_name):
 def get_source_path_from_symlink(target_name, symlink_path):
     sources_dir = get_sources_dir(target_name)
     return os.path.normpath(os.path.join(sources_dir, os.readlink(os.path.join(sources_dir, symlink_path))))
+
+def get_bin_path(target_name):
+    bindir = get_bindir_symlink(target_name)
+    return None if bindir is None else os.path.join(os.readlink(bindir), target_name)
