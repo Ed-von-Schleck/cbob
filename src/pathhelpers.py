@@ -97,3 +97,7 @@ def get_precompiled_header_path(target_name, path):
     mangled_file_name = root if ext == ".h" else mangled_file_name
     precompiled_headers_dir = get_precompiled_headers_dir(target_name)
     return None if precompiled_headers_dir is None else os.path.join(precompiled_headers_dir, mangled_file_name + ".h.gch")
+
+def get_dependencies_dir(target_name):
+    target_dir = get_target_dir(target_name)
+    return None if target_dir is None else os.path.join(target_dir, "dependencies")

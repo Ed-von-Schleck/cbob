@@ -73,8 +73,28 @@ def _get_dep_info(file_path):
     deps = [(len(dots), os.path.normpath(rest)) for (dots, sep, rest) in raw_deps]
     return file_path, deps
 
-@checks.requires_configured
+@checks.requires_target_exists
 def build(target_name, jobs):
+    dependencies_dir = pathhelpers.get_dependencies_dir(target_name)
+    for dep in os.listdir(dependencies_dir):
+        print("Building dependency '{}'.".format(dep))
+        build(dep, jobs)
+        print("Done building dependency '{}'".format(dep))
+        print()
+    build_target(target_name, jobs)
+
+@checks.requires_target_exists
+def build_target(target_name, jobs):
+    # Bail out if there are no sources -
+    # there is no need for a virtual target to be fully configured.
+    sources_links = os.listdir(pathhelpers.get_sources_dir(target_name))
+    if sources_links:
+        do_build_target(target_name, jobs, sources_links)
+    else:
+        print("No sources - nothing to do.")
+
+@checks.requires_configured
+def do_build_target(target_name, jobs, sources_links=None):
     if jobs is not None:
         jobs = jobs[0]
     sources_dir = pathhelpers.get_sources_dir(target_name)
@@ -86,7 +106,10 @@ def build(target_name, jobs):
 
     print("calculating dependencies ...", end=" ")
     sys.stdout.flush()
-    sources = [pathhelpers.get_source_path_from_symlink(target_name, source) for source in os.listdir(sources_dir)]
+    if sources_dir is None:
+        sources = [pathhelpers.get_source_path_from_symlink(target_name, source) for source in sources_links]
+    else:
+        sources = [pathhelpers.get_source_path_from_symlink(target_name, source) for source in os.listdir(sources_dir)]
     source_node_index = {file_path: _Node(file_path, target_name) for file_path in sources}
     
     # build graph

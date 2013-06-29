@@ -3,7 +3,7 @@ import os
 import src.checks as checks
 import src.pathhelpers as pathhelpers
 
-@checks.requires_initialized
+@checks.requires_target_exists
 def new(target_name):
     target_name = target_name.lower()
     if checks.target_exists(target_name):
@@ -13,4 +13,5 @@ def new(target_name):
     os.makedirs(os.path.join(new_target_dir, "sources"))
     os.makedirs(os.path.join(new_target_dir, "objects"))
     os.makedirs(os.path.join(new_target_dir, "precompiled_headers"))
+    os.makedirs(os.path.join(new_target_dir, "dependencies"))
     print("Added new target '{}'".format(target_name))

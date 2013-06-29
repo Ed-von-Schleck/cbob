@@ -31,8 +31,8 @@ def add(target_name, file_names):
             added_file_names.append(actual_file_name)
 
             abs_actual_file_path = os.path.abspath(actual_file_name)
-            rel_actual_symlink_path = os.path.normpath(os.path.relpath(abs_actual_file_path, sources_dir))
-            os.symlink(rel_actual_symlink_path, symlink_path)
+            rel_actual_path = os.path.normpath(os.path.relpath(abs_actual_file_path, sources_dir))
+            os.symlink(rel_actual_path, symlink_path)
 
     added_files_count = len(added_file_names)
     #TODO: only print with some kind of verbosity level

@@ -24,6 +24,10 @@ def _build(args):
     import src.build
     src.build.build(args.target, args.jobs)
 
+def _depend(args):
+    import src.depend
+    src.depend.depend(args.target, args.dependencies)
+
 def _configure(args):
     import src.configure
     src.configure.configure(args.target, args.auto, args.force, args.compiler, args.linker, args.bindir)
@@ -56,6 +60,11 @@ def main():
     parser_build.add_argument("target", help="The target to build.")
     parser_build.add_argument("-j", "--jobs", nargs=1, type=int, help="The target to build.")
     parser_build.set_defaults(func=_build)
+
+    parser_depend = subparsers.add_parser("depend", help="Make a target depend on other targets.")
+    parser_depend.add_argument("target", help="The target that requires the dependencies.")
+    parser_depend.add_argument("dependencies", metavar="dependency", nargs="+", help="The target(s) that are depended on.")
+    parser_depend.set_defaults(func=_depend)
 
     parser_configure = subparsers.add_parser("configure", help="Set parameter(s) for a target.")
     parser_configure.add_argument("target", help="The target to configure.")

@@ -1,6 +1,6 @@
-`cbob` builds your C/C++ projects. It does automatic dependency resolution (well, with the help of gcc, but still) of your source files. Contrary to most build tools out there, it does *not* need configuration files - you use it solely over the CLI (it might grow a GUI at some time). `cbob` tries to do as little magic as possible, prefers explicicity over implicity and ease of use over being the most generic tool out there.
+*cbob* builds your C/C++ projects. It does automatic dependency resolution (well, with the help of gcc, but still) of your source files. Contrary to most build tools out there, it does *not* need configuration files - you use it solely over the CLI (it might grow a GUI at some time). *cbob* tries to do as little magic as possible, prefers explicicity over implicity and ease of use over being the most generic tool out there.
 
-`cbob` is far from complete at the moment, but here's what works:
+*cbob* is far from complete at the moment, but here's what works:
 
 Usage
 -----
@@ -24,7 +24,7 @@ In your project's root directory, do
 ```bash
 cbob init
 ```
-to initialize `cbob` for your project.
+to initialize *cbob* for your project.
 
 #### Create a new target ####
 
@@ -35,7 +35,7 @@ cbob new <target-name>
 
 #### Adding a file to a target ####
 
-Building a target means building all source files that have been added to it. You can use wildcards like `src/*.c`, but it will *not* magically add files you add to `src/` after that (it does not track the directory, only files). `cbob` does not accept non-standard file endings. There's no need to add header files or other dependencies. To add one or more files, do
+Building a target means building all source files that have been added to it. You can use wildcards like `src/*.c`, but it will *not* magically add files you add to `src/` after that (it does not track the directory, only files). *cbob* does not accept non-standard file endings. There's no need to add header files or other dependencies. To add one or more files, do
 ```bash
 cbob add <target-name> <path-to-source-file> [<path-to-other-source-file> ...]
 ```
@@ -55,36 +55,39 @@ cbob build <target-name>
 ```
 and you will end up with a binary in the directory you configured for your output (if you chose to auto-configure it's either `bin/` if it's there or the project's root). It will automatically use as many processes as there are cpus (or you can specify the number manually with `-j`/`--jobs`).
 
+A more complete documentation will be written once all the planned features are in placed (until then, expect *cbob* to change a lot).
+
 Features
 --------
 
 Apart from the obvious, there's
-* Automatic dependency tracking: Your don't need to declare your `include`s somewhere, `cbob` gets it right.
-* Precompiled headers: By default, `cbob` precompiles your headers (and uses them) transparently.
+* Automatic dependency tracking: You don't need to declare your `include`s somewhere, *cbob* gets it right. DRY, you know.
+* Precompiled headers: By default, *cbob* precompiles your headers (and uses them) transparently.
+* Target dependencies: You can make a target dependend on other targets. When building a target, *cbob* first makes sure the dependencies are up to date. For example, you can make a *virtual* `all` target that depends on all other targets (which can have dependencies as well).
 
 Planned Features
 ----------------
 
-* Target dependencies: Require other targets to be build and up-to-date (e.g. think of an `all` target that depends on all other targets).
 * Runners: Run code (shell files or binaries) before or after compiling (like for checks and tests).
-* Hash-based dependency-tracking: In addition to looking at `mtime`s of files, `cbob` will look at the SHA{256,512} hash value of a (preprocessed) source to determine if it has changed, or maybe changed back to a previously compiled object file that is still in the object file cache.
+* Hash-based dependency-tracking: In addition to looking at `mtime`s of files, *cbob* will look at the SHA{256,512} hash value of a (preprocessed) source to determine if it has changed, or maybe changed back to a previously compiled object file that is still in the object file cache.
 * Options: Make it easy to define `--enable-foo` style configuration options.
 * Libtool support: Use libtool to make building libraries easier.
+* Plugins: Add features (or change how *cbob* works) by hooking custom Python code into *cbob*.
+* Documentation: Document everything thoroughly and write a tutorial.
 
 Maybe-Features
 --------------
 
 * Target overlays: A target that just overlays some option (e.g. exchanging `-Og` with `-O2` in the CFLAGS), but transparently follows its parent target's changes (e.g. think of a `release` overlay for the `development` target). So far, I haven't had an idea how to implement this elegantly.
 * Support for similar languages, e.g. D or Rust
-* Sub-projects: Let `cbob` handle projects in subdirectories (think of git submodules, and stuff like pre-checks as `cbob`-projects, hosted on github, as easily re-usable recipies).
+* Sub-projects: Let *cbob* handle projects in subdirectories (think of git submodules, and stuff like pre-checks as *cbob*-projects, hosted on github, as easily re-usable recipies).
 
 Non-Features
 ------------
 
 Things that are out of scope (though you may try to convince me otherwise):
 * Support for every language out there (but maybe support for doing, say, Python-modules written in C).
-* Support for system-wide installation (though I like `cbob` to be able to play nice with make/autotools).
-
+* Support for system-wide installation (though I like *cbob* to be able to play nice with make/autotools).
 
 Feedback
 --------
