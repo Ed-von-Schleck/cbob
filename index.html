@@ -1,116 +1,72 @@
-<!DOCTYPE html>
-<html>
-  <head>
-    <meta charset='utf-8'>
-    <meta http-equiv="X-UA-Compatible" content="chrome=1">
-    <link href='https://fonts.googleapis.com/css?family=Chivo:900' rel='stylesheet' type='text/css'>
-    <link rel="stylesheet" type="text/css" href="stylesheets/stylesheet.css" media="screen" />
-    <link rel="stylesheet" type="text/css" href="stylesheets/pygment_trac.css" media="screen" />
-    <link rel="stylesheet" type="text/css" href="stylesheets/print.css" media="print" />
-    <!--[if lt IE 9]>
-    <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
-    <![endif]-->
-    <title>cbob by Ed-von-Schleck</title>
-  </head>
-
-  <body>
-    <div id="container">
-      <div class="inner">
-
-        <header>
-          <h1>cbob</h1>
-          <h2>Building C/C++ Software Should Be Fun</h2>
-        </header>
-
-        <section id="downloads" class="clearfix">
-          <a href="https://github.com/Ed-von-Schleck/cbob/zipball/master" id="download-zip" class="button"><span>Download .zip</span></a>
-          <a href="https://github.com/Ed-von-Schleck/cbob/tarball/master" id="download-tar-gz" class="button"><span>Download .tar.gz</span></a>
-          <a href="https://github.com/Ed-von-Schleck/cbob" id="view-on-github" class="button"><span>View on GitHub</span></a>
-        </section>
-
-        <hr>
-
-        <section id="main_content">
-          <p><em>cbob</em> builds your C/C++ projects. It does automatic dependency resolution (well, with the help of gcc, but still) of your source files. Contrary to most build tools out there, it does <em>not</em> need configuration files - you use it solely over the CLI (it might grow a GUI at some time). <em>cbob</em> tries to do as little magic as possible, prefers explicicity over implicity and ease of use over being the most generic tool out there.</p>
+<!DOCTYPE html><html lang="en"><head><title>index</title></head><meta http-equiv="Content-Type" content="text/html; charset=utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0"><meta name="groc-relative-root" content=""><meta name="groc-document-path" content="index"><meta name="groc-project-path" content="README.md"><meta name="groc-github-url" content="https://github.com/Ed-von-Schleck/cbob"><link rel="stylesheet" type="text/css" media="all" href="assets/style.css"><script type="text/javascript" src="assets/behavior.js"></script><body><div id="meta"><div class="file-path"><a href="https://github.com/Ed-von-Schleck/cbob/blob/master/README.md">README.md</a></div></div><div id="document"><div class="segment"><div class="comments"><div class="wrapper"><p><em>cbob</em> builds your C/C++ projects. It does automatic dependency resolution (well, with the help of gcc, but still) of your source files. Contrary to most build tools out there, it does <em>not</em> need configuration files - you use it solely over the CLI (it might grow a GUI at some time). <em>cbob</em> tries to do as little magic as possible, prefers explicicity over implicity and ease of use over being the most generic tool out there.</p>
 
 <p><em>cbob</em> is far from complete at the moment, but here's what works:</p>
 
-<h2>
-<a name="usage" class="anchor" href="#usage"><span class="octicon octicon-link"></span></a>Usage</h2>
+<h2 id="usage">Usage</h2>
 
-<h3>
-<a name="help" class="anchor" href="#help"><span class="octicon octicon-link"></span></a>Help</h3>
+<h3 id="help">Help</h3>
 
 <p>Do</p>
 
-<div class="highlight"><pre>cbob --help
-</pre></div>
+<pre><code class="bash">cbob --help
+</code></pre>
 
 <p>to get a list overview over the possible commands. To get help for a specific command, do</p>
 
-<div class="highlight"><pre>cbob &lt;<span class="nb">command</span>&gt; --help
-</pre></div>
+<pre><code class="bash">cbob &lt;command&gt; --help
+</code></pre>
 
-<h3>
-<a name="commands" class="anchor" href="#commands"><span class="octicon octicon-link"></span></a>Commands</h3>
+<h3 id="commands">Commands</h3>
 
-<h4>
-<a name="init-cbob" class="anchor" href="#init-cbob"><span class="octicon octicon-link"></span></a>Init cbob</h4>
+<h4 id="init-cbob">Init cbob</h4>
 
 <p>In your project's root directory, do</p>
 
-<div class="highlight"><pre>cbob init
-</pre></div>
+<pre><code class="bash">cbob init
+</code></pre>
 
 <p>to initialize <em>cbob</em> for your project.</p>
 
-<h4>
-<a name="create-a-new-target" class="anchor" href="#create-a-new-target"><span class="octicon octicon-link"></span></a>Create a new target</h4>
+<h4 id="create-a-new-target">Create a new target</h4>
 
 <p>Every project needs at least one target to be defined. The name of the target is also the name of the resulting binary. To create a target, do</p>
 
-<div class="highlight"><pre>cbob new &lt;target-name&gt;
-</pre></div>
+<pre><code class="bash">cbob new &lt;target-name&gt;
+</code></pre>
 
-<h4>
-<a name="adding-a-file-to-a-target" class="anchor" href="#adding-a-file-to-a-target"><span class="octicon octicon-link"></span></a>Adding a file to a target</h4>
+<h4 id="adding-a-file-to-a-target">Adding a file to a target</h4>
 
 <p>Building a target means building all source files that have been added to it. You can use wildcards like <code>src/*.c</code>, but it will <em>not</em> magically add files you add to <code>src/</code> after that (it does not track the directory, only files). <em>cbob</em> does not accept non-standard file endings. There's no need to add header files or other dependencies. To add one or more files, do</p>
 
-<div class="highlight"><pre>cbob add &lt;target-name&gt; &lt;path-to-source-file&gt; <span class="o">[</span>&lt;path-to-other-source-file&gt; ...<span class="o">]</span>
-</pre></div>
+<pre><code class="bash">cbob add &lt;target-name&gt; &lt;path-to-source-file&gt; [&lt;path-to-other-source-file&gt; ...]
+</code></pre>
 
-<h4>
-<a name="configuring-a-target" class="anchor" href="#configuring-a-target"><span class="octicon octicon-link"></span></a>Configuring a target</h4>
+<h4 id="configuring-a-target">Configuring a target</h4>
 
 <p>At the very least, a compiler need to be chosen. There is more, though: Do <code>cbob configure --help</code> to get a list of all configuration options. To try and let cbob figure it all out for you, do</p>
 
-<div class="highlight"><pre>cbob configure --auto &lt;target-name&gt;
-</pre></div>
+<pre><code class="bash">cbob configure --auto &lt;target-name&gt;
+</code></pre>
 
-<h4>
-<a name="building-a-target" class="anchor" href="#building-a-target"><span class="octicon octicon-link"></span></a>Building a target</h4>
+<h4 id="building-a-target">Building a target</h4>
 
 <p>Simply do</p>
 
-<div class="highlight"><pre>cbob build &lt;target-name&gt;
-</pre></div>
+<pre><code class="bash">cbob build &lt;target-name&gt;
+</code></pre>
 
 <p>and you will end up with a binary in the directory you configured for your output (if you chose to auto-configure it's either <code>bin/</code> if it's there or the project's root). It will automatically use as many processes as there are cpus (or you can specify the number manually with <code>-j</code>/<code>--jobs</code>).</p>
 
 <p>A more complete documentation will be written once all the planned features are in placed (until then, expect <em>cbob</em> to change a lot).</p>
 
-<h2>
-<a name="features" class="anchor" href="#features"><span class="octicon octicon-link"></span></a>Features</h2>
+<h2 id="features">Features</h2>
 
-<p>Apart from the obvious, there's</p>
+<p>Apart from the obvious, there's
+* Automatic header dependency tracking: You don't need to declare your <code>include</code>s somewhere, <em>cbob</em> gets it right. DRY, you know.
+* Precompiled headers: By default, <em>cbob</em> precompiles your headers (and uses them) transparently.
+* Target dependencies: You can make a target dependend on other targets. When building a target, <em>cbob</em> first makes sure its dependencies are up to date. For example, you can make a <em>virtual</em> <code>all</code> target that depends on all other targets (which can have dependencies as well).</p>
 
-<ul>
-<li>Automatic <code>include</code> dependency tracking: You don't need to declare your <code>include</code>s somewhere, <em>cbob</em> gets it right. DRY, you know.</li>
-<li>Precompiled headers: By default, <em>cbob</em> precompiles your headers (and uses them) transparently.</li>
-<li>Target dependencies: You can make a target dependend on other targets. When building a target, <em>cbob</em> first makes sure its dependencies are up to date. For example, you can make a <em>virtual</em> <code>all</code> target that depends on all other targets (which can have dependencies as well).</li>
-</ul><h2>
-<a name="planned-features" class="anchor" href="#planned-features"><span class="octicon octicon-link"></span></a>Planned Features</h2>
+<h2 id="planned-features">Planned Features</h2>
 
 <ul>
 <li>Runners: Run code (shell files or binaries) before or after compiling (like for checks and tests).</li>
@@ -119,36 +75,24 @@
 <li>Libtool support: Use libtool to make building libraries easier.</li>
 <li>Plugins: Add features (or change how <em>cbob</em> works) by hooking custom Python code into <em>cbob</em>.</li>
 <li>Documentation: Document everything thoroughly and write a tutorial.</li>
-</ul><h2>
-<a name="maybe-features" class="anchor" href="#maybe-features"><span class="octicon octicon-link"></span></a>Maybe-Features</h2>
+</ul>
+
+<h2 id="maybe-features">Maybe-Features</h2>
 
 <ul>
 <li>Target overlays: A target that just overlays some option (e.g. exchanging <code>-Og</code> with <code>-O2</code> in the CFLAGS), but transparently follows its parent target's changes (e.g. think of a <code>release</code> overlay for the <code>development</code> target). So far, I haven't had an idea how to implement this elegantly.</li>
 <li>Support for similar languages, e.g. D or Rust</li>
 <li>Sub-projects: Let <em>cbob</em> handle projects in subdirectories (think of git submodules, and stuff like pre-checks as <em>cbob</em>-projects, hosted on github, as easily re-usable recipies).</li>
-</ul><h2>
-<a name="non-features" class="anchor" href="#non-features"><span class="octicon octicon-link"></span></a>Non-Features</h2>
+</ul>
 
-<p>Things that are out of scope (though you may try to convince me otherwise):</p>
+<h2 id="non-features">Non-Features</h2>
 
-<ul>
-<li>Support for every language out there (but maybe support for doing, say, Python-modules written in C).</li>
-<li>Support for system-wide installation (though I like <em>cbob</em> to be able to play nice with make/autotools).</li>
-</ul><h2>
-<a name="feedback" class="anchor" href="#feedback"><span class="octicon octicon-link"></span></a>Feedback</h2>
+<p>Things that are out of scope (though you may try to convince me otherwise):
+* Support for every language out there (but maybe support for doing, say, Python-modules written in C).
+* Support for system-wide installation (though I like <em>cbob</em> to be able to play nice with make/autotools).</p>
+
+<h2 id="feedback">Feedback</h2>
 
 <p>As you obviously just stumbled over this very new piece of software, I am very much interested in your opinion about it (try it - it ist usable? How is it better/worse than other tools? Is it fast enough? Is it documented enough? Can it do enough? Is it cool enough?). Just open an issue on github and drop a line or two there.</p>
 
-<p>Better yet, contribute to it. It is written in Python (though in a style that lets me transition to C; I haven't made up my mind about it yet), so it's fun. I'll gladly take pull requests.</p>
-        </section>
-
-        <footer>
-          cbob is maintained by <a href="https://github.com/Ed-von-Schleck">Ed-von-Schleck</a><br>
-          This page was generated by <a href="http://pages.github.com">GitHub Pages</a>. Tactile theme by <a href="https://twitter.com/jasonlong">Jason Long</a>.
-        </footer>
-
-        
-      </div>
-    </div>
-  </body>
-</html>
+<p>Better yet, contribute to it. It is written in Python (though in a style that lets me transition to C; I haven't made up my mind about it yet), so it's fun. I'll gladly take pull requests.</p></div></div></div></div></body></html>

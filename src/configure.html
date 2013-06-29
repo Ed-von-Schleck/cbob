@@ -1,0 +1,87 @@
+<!DOCTYPE html><html lang="en"><head><title>src/configure</title></head><meta http-equiv="Content-Type" content="text/html; charset=utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0"><meta name="groc-relative-root" content="../"><meta name="groc-document-path" content="src/configure"><meta name="groc-project-path" content="src/configure.py"><meta name="groc-github-url" content="https://github.com/Ed-von-Schleck/cbob"><link rel="stylesheet" type="text/css" media="all" href="../assets/style.css"><script type="text/javascript" src="../assets/behavior.js"></script><body><div id="meta"><div class="file-path"><a href="https://github.com/Ed-von-Schleck/cbob/blob/master/src/configure.py">src/configure.py</a></div></div><div id="document"><div class="segment"><div class="code"><div class="wrapper"><span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">import</span> <span class="nn">os.path</span>
+<span class="kn">import</span> <span class="nn">subprocess</span>
+
+<span class="kn">import</span> <span class="nn">src.checks</span> <span class="kn">as</span> <span class="nn">checks</span>
+<span class="kn">import</span> <span class="nn">src.pathhelpers</span> <span class="kn">as</span> <span class="nn">pathhelpers</span>
+
+<span class="k">def</span> <span class="nf">_guess_target_language</span><span class="p">(</span><span class="n">target_name</span><span class="p">):</span>
+    <span class="n">sources_dir</span> <span class="o">=</span> <span class="n">pathhelpers</span><span class="o">.</span><span class="n">get_sources_dir</span><span class="p">(</span><span class="n">target_name</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">file_name</span> <span class="ow">in</span> <span class="n">os</span><span class="o">.</span><span class="n">listdir</span><span class="p">(</span><span class="n">sources_dir</span><span class="p">):</span>
+        <span class="n">root</span><span class="p">,</span> <span class="n">ext</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">splitext</span><span class="p">(</span><span class="n">file_name</span><span class="p">)</span>
+        <span class="n">ext</span> <span class="o">=</span> <span class="n">ext</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">ext</span> <span class="o">==</span> <span class="s">&quot;.c&quot;</span><span class="p">:</span>
+            <span class="k">return</span> <span class="s">&quot;C&quot;</span>
+        <span class="k">elif</span> <span class="n">ext</span> <span class="ow">in</span> <span class="p">(</span><span class="s">&quot;.cc&quot;</span><span class="p">,</span> <span class="s">&quot;.cpp&quot;</span><span class="p">,</span> <span class="s">&quot;c++&quot;</span><span class="p">,</span> <span class="s">&quot;.cxx&quot;</span><span class="p">):</span>
+            <span class="k">return</span> <span class="s">&quot;C++&quot;</span>
+    <span class="k">return</span> <span class="bp">None</span>
+
+<span class="nd">@checks.requires_target_exists</span>
+<span class="k">def</span> <span class="nf">configure</span><span class="p">(</span><span class="n">target_name</span><span class="p">,</span> <span class="n">auto</span><span class="p">,</span> <span class="n">force</span><span class="p">,</span> <span class="n">compiler</span><span class="p">,</span> <span class="n">linker</span><span class="p">,</span> <span class="n">bindir</span><span class="p">):</span>
+    <span class="n">target_dir</span> <span class="o">=</span> <span class="n">pathhelpers</span><span class="o">.</span><span class="n">get_target_dir</span><span class="p">(</span><span class="n">target_name</span><span class="p">)</span>
+
+    <span class="n">compiler_symlink_path</span> <span class="o">=</span> <span class="n">pathhelpers</span><span class="o">.</span><span class="n">get_compiler_symlink</span><span class="p">(</span><span class="n">target_name</span><span class="p">)</span>
+    <span class="n">compiler_symlink_exists</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">islink</span><span class="p">(</span><span class="n">compiler_symlink_path</span><span class="p">)</span> 
+
+    <span class="n">linker_symlink_path</span> <span class="o">=</span> <span class="n">pathhelpers</span><span class="o">.</span><span class="n">get_linker_symlink</span><span class="p">(</span><span class="n">target_name</span><span class="p">)</span>
+    <span class="n">linker_symlink_exists</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">islink</span><span class="p">(</span><span class="n">linker_symlink_path</span><span class="p">)</span> 
+
+    <span class="n">bindir_symlink_path</span> <span class="o">=</span> <span class="n">pathhelpers</span><span class="o">.</span><span class="n">get_bindir_symlink</span><span class="p">(</span><span class="n">target_name</span><span class="p">)</span>
+    <span class="n">bindir_symlink_exists</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">islink</span><span class="p">(</span><span class="n">bindir_symlink_path</span><span class="p">)</span>
+
+    <span class="n">project_root</span> <span class="o">=</span> <span class="n">pathhelpers</span><span class="o">.</span><span class="n">get_project_root</span><span class="p">()</span>
+
+    <span class="k">if</span> <span class="n">auto</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">compiler</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">compiler_symlink_exists</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">force</span><span class="p">:</span>
+                <span class="k">print</span><span class="p">(</span><span class="s">&quot;WARNING: There&#39;s already a compiler configured ({}).&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">readlink</span><span class="p">(</span><span class="n">compiler_symlink_path</span><span class="p">)))</span>
+                <span class="k">print</span><span class="p">(</span><span class="s">&quot;Use &#39;--force&#39; to force overwriting previous configurations.&quot;</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">lang</span> <span class="o">=</span> <span class="n">_guess_target_language</span><span class="p">(</span><span class="n">target_name</span><span class="p">)</span>
+                <span class="n">compiler_path</span> <span class="o">=</span> <span class="bp">None</span>
+                <span class="k">if</span> <span class="n">lang</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+                    <span class="k">print</span><span class="p">(</span><span class="s">&quot;ERROR: Language could not be determined. Please configure compiler manually.&quot;</span><span class="p">)</span>
+                    <span class="k">print</span><span class="p">(</span><span class="s">&quot;(cbob configure --compiler &lt;path-to-compiler&gt;)&quot;</span><span class="p">)</span>
+
+                <span class="c">#TODO: enable support for other compilers</span>
+                <span class="k">if</span> <span class="n">lang</span> <span class="o">==</span> <span class="s">&quot;C&quot;</span><span class="p">:</span>
+                    <span class="n">compiler_path</span> <span class="o">=</span> <span class="n">subprocess</span><span class="o">.</span><span class="n">check_output</span><span class="p">([</span><span class="s">&quot;which&quot;</span><span class="p">,</span> <span class="s">&quot;gcc&quot;</span><span class="p">])</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+                <span class="k">elif</span> <span class="n">lang</span> <span class="o">==</span> <span class="s">&quot;C++&quot;</span><span class="p">:</span>
+                    <span class="n">compiler_path</span> <span class="o">=</span> <span class="n">subprocess</span><span class="o">.</span><span class="n">check_output</span><span class="p">([</span><span class="s">&quot;which&quot;</span><span class="p">,</span> <span class="s">&quot;g++&quot;</span><span class="p">])</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+
+                <span class="c">#TODO: check that &#39;compiler_path&#39; is actually sane.</span>
+
+                <span class="k">if</span> <span class="n">compiler_path</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="n">compiler_symlink_exists</span> <span class="ow">and</span> <span class="n">force</span><span class="p">:</span>
+                        <span class="n">os</span><span class="o">.</span><span class="n">unlink</span><span class="p">(</span><span class="n">compiler_symlink_path</span><span class="p">)</span>
+                    <span class="n">os</span><span class="o">.</span><span class="n">symlink</span><span class="p">(</span><span class="n">compiler_path</span><span class="p">,</span> <span class="n">compiler_symlink_path</span><span class="p">)</span>
+                    <span class="k">print</span><span class="p">(</span><span class="s">&quot;Determined language of target &#39;{}&#39; to be &#39;{}&#39;. The chosen compiler is &#39;{}&#39;.&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">target_name</span><span class="p">,</span> <span class="n">lang</span><span class="p">,</span> <span class="n">compiler_path</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="s">&quot;utf-8&quot;</span><span class="p">)))</span>
+                    <span class="k">print</span><span class="p">(</span><span class="s">&quot;Please configure manually if that is incorrect (&#39;cbob configure --compiler &lt;path-to-compiler&gt;&#39;).&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">linker</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">linker_symlink_exists</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">force</span><span class="p">:</span>
+                <span class="k">print</span><span class="p">(</span><span class="s">&quot;WARNING: There&#39;s already a linker configured ({}).&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">readlink</span><span class="p">(</span><span class="n">linker_symlink_path</span><span class="p">)))</span>
+                <span class="k">print</span><span class="p">(</span><span class="s">&quot;Use &#39;--force&#39; to force overwriting previous configurations.&quot;</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">linker_path</span> <span class="o">=</span> <span class="n">compiler_path</span>
+                <span class="k">if</span> <span class="n">linker_symlink_exists</span> <span class="ow">and</span> <span class="n">force</span><span class="p">:</span>
+                    <span class="n">os</span><span class="o">.</span><span class="n">unlink</span><span class="p">(</span><span class="n">linker_symlink_path</span><span class="p">)</span>
+                <span class="n">os</span><span class="o">.</span><span class="n">symlink</span><span class="p">(</span><span class="n">linker_path</span><span class="p">,</span> <span class="n">linker_symlink_path</span><span class="p">)</span>
+                <span class="k">print</span><span class="p">(</span><span class="s">&quot;The chosen linker for target &#39;{}&#39; is &#39;{}&#39;.&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">target_name</span><span class="p">,</span> <span class="n">linker_path</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="s">&quot;utf-8&quot;</span><span class="p">)))</span>
+                <span class="k">print</span><span class="p">(</span><span class="s">&quot;Please configure manually if that is incorrect (&#39;cbob configure --linker &lt;path-to-linker&gt;&#39;).&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">bindir</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">bindir_symlink_exists</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">force</span><span class="p">:</span>
+                <span class="k">print</span><span class="p">(</span><span class="s">&quot;WARNING: There&#39;s already a output directory for binaries configured ({}).&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">readlink</span><span class="p">(</span><span class="n">bindir_symlink_path</span><span class="p">)))</span>
+                <span class="k">print</span><span class="p">(</span><span class="s">&quot;Use &#39;--force&#39; to force overwriting previous configurations.&quot;</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">bindir_symlink_exists</span> <span class="ow">and</span> <span class="n">force</span><span class="p">:</span>
+                    <span class="n">os</span><span class="o">.</span><span class="n">unlink</span><span class="p">(</span><span class="n">bindir_symlink_path</span><span class="p">)</span>
+                <span class="n">assumed_bindir</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">project_root</span><span class="p">,</span> <span class="s">&quot;bin&quot;</span><span class="p">)</span>
+                <span class="n">bindir_auto</span> <span class="o">=</span> <span class="n">assumed_bindir</span> <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isdir</span><span class="p">(</span><span class="n">assumed_bindir</span><span class="p">)</span> <span class="k">else</span> <span class="n">project_root</span>
+                <span class="n">os</span><span class="o">.</span><span class="n">symlink</span><span class="p">(</span><span class="n">bindir_auto</span><span class="p">,</span> <span class="n">bindir_symlink_path</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span> <span class="c"># manual configuration</span>
+        <span class="k">if</span> <span class="n">compiler</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="n">os</span><span class="o">.</span><span class="n">symlink</span><span class="p">(</span><span class="n">compiler</span><span class="p">,</span> <span class="n">compiler_symlink_path</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">linker</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="n">os</span><span class="o">.</span><span class="n">symlink</span><span class="p">(</span><span class="n">linker</span><span class="p">,</span> <span class="n">linker_symlink_path</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">bindir</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="n">os</span><span class="o">.</span><span class="n">symlink</span><span class="p">(</span><span class="n">bindir</span><span class="p">,</span> <span class="n">bindir_symlink_path</span><span class="p">)</span></div></div></div></div></body></html>

@@ -1,0 +1,46 @@
+<!DOCTYPE html><html lang="en"><head><title>src/add</title></head><meta http-equiv="Content-Type" content="text/html; charset=utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0"><meta name="groc-relative-root" content="../"><meta name="groc-document-path" content="src/add"><meta name="groc-project-path" content="src/add.py"><meta name="groc-github-url" content="https://github.com/Ed-von-Schleck/cbob"><link rel="stylesheet" type="text/css" media="all" href="../assets/style.css"><script type="text/javascript" src="../assets/behavior.js"></script><body><div id="meta"><div class="file-path"><a href="https://github.com/Ed-von-Schleck/cbob/blob/master/src/add.py">src/add.py</a></div></div><div id="document"><div class="segment"><div class="code"><div class="wrapper"><span class="kn">import</span> <span class="nn">glob</span>
+<span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">import</span> <span class="nn">os.path</span>
+
+<span class="kn">import</span> <span class="nn">src.checks</span> <span class="kn">as</span> <span class="nn">checks</span>
+<span class="kn">import</span> <span class="nn">src.pathhelpers</span> <span class="kn">as</span> <span class="nn">pathhelpers</span>
+<span class="kn">from</span> <span class="nn">src.definitions</span> <span class="kn">import</span> <span class="n">SOURCE_FILE_EXTENSIONS</span>
+
+<span class="nd">@checks.requires_target_exists</span>
+<span class="k">def</span> <span class="nf">add</span><span class="p">(</span><span class="n">target_name</span><span class="p">,</span> <span class="n">file_names</span><span class="p">):</span>
+    <span class="n">sources_dir</span> <span class="o">=</span> <span class="n">pathhelpers</span><span class="o">.</span><span class="n">get_sources_dir</span><span class="p">(</span><span class="n">target_name</span><span class="p">)</span>
+    <span class="n">project_root</span> <span class="o">=</span> <span class="n">pathhelpers</span><span class="o">.</span><span class="n">get_project_root</span><span class="p">()</span>
+    <span class="n">added_file_names</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">file_name</span> <span class="ow">in</span> <span class="n">file_names</span><span class="p">:</span>
+        <span class="n">file_name</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">expanduser</span><span class="p">(</span><span class="n">file_name</span><span class="p">)</span>
+        <span class="n">file_list</span> <span class="o">=</span> <span class="n">glob</span><span class="o">.</span><span class="n">glob</span><span class="p">(</span><span class="n">file_name</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">file_list</span><span class="p">:</span>
+            <span class="k">print</span><span class="p">(</span><span class="s">&quot;No match for &#39;{}&#39;.&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">file_name</span><span class="p">))</span>
+            <span class="k">continue</span>
+        <span class="k">for</span> <span class="n">actual_file_name</span> <span class="ow">in</span> <span class="n">file_list</span><span class="p">:</span>
+            <span class="c">#TODO: cleanup</span>
+            <span class="n">mangled_file_name</span> <span class="o">=</span> <span class="n">pathhelpers</span><span class="o">.</span><span class="n">mangle_path</span><span class="p">(</span><span class="n">actual_file_name</span><span class="p">)</span>
+            <span class="n">symlink_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">sources_dir</span><span class="p">,</span> <span class="n">mangled_file_name</span><span class="p">)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">splitext</span><span class="p">(</span><span class="n">actual_file_name</span><span class="p">)[</span><span class="mi">1</span><span class="p">]</span> <span class="ow">in</span> <span class="n">SOURCE_FILE_EXTENSIONS</span><span class="p">:</span>
+                <span class="k">print</span><span class="p">(</span><span class="s">&quot;&#39;{}&#39; does not seem to be a C/C++ source file (ending is not one of {}).&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">actual_file_name</span><span class="p">,</span> <span class="s">&quot;, &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">SOURCE_FILE_EXTENSIONS</span><span class="p">)))</span>
+                <span class="k">continue</span>
+            <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">islink</span><span class="p">(</span><span class="n">symlink_path</span><span class="p">):</span>
+                <span class="c">#TODO: only print with some kind of verbosity level</span>
+                <span class="k">print</span><span class="p">(</span><span class="s">&quot;File &#39;{}&#39; is already a source in target &#39;{}&#39;.&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">actual_file_name</span><span class="p">,</span> <span class="n">target_name</span><span class="p">))</span>
+                <span class="k">continue</span>
+            <span class="n">added_file_names</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">actual_file_name</span><span class="p">)</span>
+
+            <span class="n">abs_actual_file_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">actual_file_name</span><span class="p">)</span>
+            <span class="n">rel_actual_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">normpath</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">relpath</span><span class="p">(</span><span class="n">abs_actual_file_path</span><span class="p">,</span> <span class="n">sources_dir</span><span class="p">))</span>
+            <span class="n">os</span><span class="o">.</span><span class="n">symlink</span><span class="p">(</span><span class="n">rel_actual_path</span><span class="p">,</span> <span class="n">symlink_path</span><span class="p">)</span>
+
+    <span class="n">added_files_count</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">added_file_names</span><span class="p">)</span>
+    <span class="c">#TODO: only print with some kind of verbosity level</span>
+    <span class="k">if</span> <span class="n">added_files_count</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">print</span><span class="p">(</span><span class="s">&quot;No files have been added to target &#39;{}&#39;.&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">target_name</span><span class="p">))</span>
+    <span class="k">elif</span> <span class="n">added_files_count</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="k">print</span><span class="p">(</span><span class="s">&quot;File &#39;{}&#39; has been added to target &#39;{}&#39;.&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">added_file_names</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">target_name</span><span class="p">))</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">print</span><span class="p">(</span><span class="s">&quot;Files added to target &#39;{}&#39;:&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">target_name</span><span class="p">))</span>
+        <span class="k">for</span> <span class="n">added_file_name</span> <span class="ow">in</span> <span class="n">added_file_names</span><span class="p">:</span>
+            <span class="k">print</span><span class="p">(</span><span class="n">added_file_name</span><span class="p">)</span></div></div></div></div></body></html>

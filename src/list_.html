@@ -1,0 +1,8 @@
+<!DOCTYPE html><html lang="en"><head><title>src/list_</title></head><meta http-equiv="Content-Type" content="text/html; charset=utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0"><meta name="groc-relative-root" content="../"><meta name="groc-document-path" content="src/list_"><meta name="groc-project-path" content="src/list_.py"><meta name="groc-github-url" content="https://github.com/Ed-von-Schleck/cbob"><link rel="stylesheet" type="text/css" media="all" href="../assets/style.css"><script type="text/javascript" src="../assets/behavior.js"></script><body><div id="meta"><div class="file-path"><a href="https://github.com/Ed-von-Schleck/cbob/blob/master/src/list_.py">src/list_.py</a></div></div><div id="document"><div class="segment"><div class="code"><div class="wrapper"><span class="kn">import</span> <span class="nn">os</span>
+
+<span class="kn">import</span> <span class="nn">src.pathhelpers</span> <span class="kn">as</span> <span class="nn">pathhelpers</span>
+
+<span class="k">def</span> <span class="nf">list_</span><span class="p">():</span>
+    <span class="n">targets_dir</span> <span class="o">=</span> <span class="n">pathhelpers</span><span class="o">.</span><span class="n">get_targets_dir</span><span class="p">()</span>
+    <span class="k">for</span> <span class="n">target_name</span> <span class="ow">in</span> <span class="n">os</span><span class="o">.</span><span class="n">listdir</span><span class="p">(</span><span class="n">targets_dir</span><span class="p">):</span>
+        <span class="k">print</span><span class="p">(</span><span class="n">target_name</span><span class="p">)</span></div></div></div></div></body></html>
