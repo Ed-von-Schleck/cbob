@@ -61,9 +61,9 @@ Features
 --------
 
 Apart from the obvious, there's
-* Automatic dependency tracking: You don't need to declare your `include`s somewhere, *cbob* gets it right. DRY, you know.
+* Automatic `include` dependency tracking: You don't need to declare your `include`s somewhere, *cbob* gets it right. DRY, you know.
 * Precompiled headers: By default, *cbob* precompiles your headers (and uses them) transparently.
-* Target dependencies: You can make a target dependend on other targets. When building a target, *cbob* first makes sure the dependencies are up to date. For example, you can make a *virtual* `all` target that depends on all other targets (which can have dependencies as well).
+* Target dependencies: You can make a target dependend on other targets. When building a target, *cbob* first makes sure its dependencies are up to date. For example, you can make a *virtual* `all` target that depends on all other targets (which can have dependencies as well).
 
 Planned Features
 ----------------
