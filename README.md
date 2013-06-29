@@ -1,3 +1,6 @@
+cbob
+====
+
 *cbob* builds your C/C++ projects. It does automatic dependency resolution (well, with the help of gcc, but still) of your source files. Contrary to most build tools out there, it does *not* need configuration files - you use it solely over the CLI (it might grow a GUI at some time). *cbob* tries to do as little magic as possible, prefers explicicity over implicity and ease of use over being the most generic tool out there.
 
 *cbob* is far from complete at the moment, but here's what works:
@@ -61,6 +64,7 @@ Features
 --------
 
 Apart from the obvious, there's
+
 * Automatic header dependency tracking: You don't need to declare your `include`s somewhere, *cbob* gets it right. DRY, you know.
 * Precompiled headers: By default, *cbob* precompiles your headers (and uses them) transparently.
 * Target dependencies: You can make a target dependend on other targets. When building a target, *cbob* first makes sure its dependencies are up to date. For example, you can make a *virtual* `all` target that depends on all other targets (which can have dependencies as well).
@@ -86,6 +90,7 @@ Non-Features
 ------------
 
 Things that are out of scope (though you may try to convince me otherwise):
+
 * Support for every language out there (but maybe support for doing, say, Python-modules written in C).
 * Support for system-wide installation (though I like *cbob* to be able to play nice with make/autotools).
 
