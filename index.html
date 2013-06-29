@@ -85,7 +85,7 @@
 
 <p>At the very least, a compiler need to be chosen. There is more, though: Do <code>cbob configure --help</code> to get a list of all configuration options. To try and let cbob figure it all out for you, do</p>
 
-<div class="highlight"><pre>cbob configure --auto
+<div class="highlight"><pre>cbob configure --auto &lt;target-name&gt;
 </pre></div>
 
 <h4>
@@ -99,6 +99,14 @@
 <p>and you will end up with a binary in the directory you configured for your output (if you chose to auto-configure it's either <code>bin/</code> if it's there or the project's root). It will automatically use as many processes as there are cpus (or you can specify the number manually with <code>-j</code>/<code>--jobs</code>).</p>
 
 <h2>
+<a name="features" class="anchor" href="#features"><span class="octicon octicon-link"></span></a>Features</h2>
+
+<p>Apart from the obvious, there's</p>
+
+<ul>
+<li>Automatic dependency tracking: Your don't need to declare your <code>include</code>s somewhere, <code>cbob</code> gets it right.</li>
+<li>Precompiled headers: By default, <code>cbob</code> precompiles your headers (and uses them) transparently.</li>
+</ul><h2>
 <a name="planned-features" class="anchor" href="#planned-features"><span class="octicon octicon-link"></span></a>Planned Features</h2>
 
 <ul>
@@ -111,7 +119,7 @@
 <a name="maybe-features" class="anchor" href="#maybe-features"><span class="octicon octicon-link"></span></a>Maybe-Features</h2>
 
 <ul>
-<li>Target overlays: A target that just overlays some option (e.g. exchanging <code>-Og</code> with <code>-O2</code> in the CFLAGS), but transparently follows it's parent target's changes (e.g. think of a <code>release</code> overlay for the <code>development</code> target). So far, I haven't had an idea how to implement this elegantly.</li>
+<li>Target overlays: A target that just overlays some option (e.g. exchanging <code>-Og</code> with <code>-O2</code> in the CFLAGS), but transparently follows its parent target's changes (e.g. think of a <code>release</code> overlay for the <code>development</code> target). So far, I haven't had an idea how to implement this elegantly.</li>
 <li>Support for similar languages, e.g. D or Rust</li>
 <li>Sub-projects: Let <code>cbob</code> handle projects in subdirectories (think of git submodules, and stuff like pre-checks as <code>cbob</code>-projects, hosted on github, as easily re-usable recipies).</li>
 </ul><h2>
@@ -123,15 +131,6 @@
 <li>Support for every language out there (but maybe support for doing, say, Python-modules written in C).</li>
 <li>Support for system-wide installation (though I like <code>cbob</code> to be able to play nice with make/autotools).</li>
 </ul><h2>
-<a name="how-it-works" class="anchor" href="#how-it-works"><span class="octicon octicon-link"></span></a>How it works</h2>
-
-<p>Just look in your <code>.cbob</code> directory. Every target is a subdirectory of <code>.cbob/targets</code>. Every source file is a symlink in its <code>sources</code> subdirectory. The source's file path relative to the project root is mangled (<code>/</code> replaced with <code>_</code>) so that it is a flat list. Similarly, the configured compiler is just a symlink, and so on.</p>
-
-<p>When <code>cbob</code> build a target, it first assembles a list of all source files for that target (reading the symlinks in the <code>source</code> subdirectory). Then it creates a directed acyclical graph (DAG) from the dependencies (well, hopefully acyclical - it will fail noisily if it isn't). The nodes are then partially ordered via a topological sort, and iterated over from the end points first. For every node, it checks if it's a source file (and not a header), and if it is, <code>cbob</code> marks it as <em>dirty</em> if it's <code>mtime</code> is newer than the corresponding object file. Then, <code>cbob</code> will update the <code>mtime</code> of nodes directly depending on our node in question with <code>max(node, child_node)</code>.</p>
-
-<p>That's it. The dirty nodes will be recompiled, and if there is at least on dirty node, the linking step will be performed.</p>
-
-<h2>
 <a name="feedback" class="anchor" href="#feedback"><span class="octicon octicon-link"></span></a>Feedback</h2>
 
 <p>As you obviously just stumbled over this very new piece of software, I am very much interested in your opinion about it (try it - it ist usable? How is it better/worse than other tools? Is it fast enough? Is it documented enough? Can it do enough? Is it cool enough?). Just open an issue on github and drop a line or two there.</p>
