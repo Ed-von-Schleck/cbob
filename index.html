@@ -1,4 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><title>index</title></head><meta http-equiv="Content-Type" content="text/html; charset=utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0"><meta name="groc-relative-root" content=""><meta name="groc-document-path" content="index"><meta name="groc-project-path" content="README.md"><meta name="groc-github-url" content="https://github.com/Ed-von-Schleck/cbob"><link rel="stylesheet" type="text/css" media="all" href="assets/style.css"><script type="text/javascript" src="assets/behavior.js"></script><body><div id="meta"><div class="file-path"><a href="https://github.com/Ed-von-Schleck/cbob/blob/master/README.md">README.md</a></div></div><div id="document"><div class="segment"><div class="comments"><div class="wrapper"><p><em>cbob</em> builds your C/C++ projects. It does automatic dependency resolution (well, with the help of gcc, but still) of your source files. Contrary to most build tools out there, it does <em>not</em> need configuration files - you use it solely over the CLI (it might grow a GUI at some time). <em>cbob</em> tries to do as little magic as possible, prefers explicicity over implicity and ease of use over being the most generic tool out there.</p>
+<!DOCTYPE html><html lang="en"><head><title>index</title></head><meta http-equiv="Content-Type" content="text/html; charset=utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0"><meta name="groc-relative-root" content=""><meta name="groc-document-path" content="index"><meta name="groc-project-path" content="README.md"><meta name="groc-github-url" content="https://github.com/Ed-von-Schleck/cbob"><link rel="stylesheet" type="text/css" media="all" href="assets/style.css"><script type="text/javascript" src="assets/behavior.js"></script><body><div id="meta"><div class="file-path"><a href="https://github.com/Ed-von-Schleck/cbob/blob/master/README.md">README.md</a></div></div><div id="document"><div class="segment"><div class="comments"><div class="wrapper"><h1 id="cbob">cbob</h1>
+
+<p><em>cbob</em> builds your C/C++ projects. It does automatic dependency resolution (well, with the help of gcc, but still) of your source files. Contrary to most build tools out there, it does <em>not</em> need configuration files - you use it solely over the CLI (it might grow a GUI at some time). <em>cbob</em> tries to do as little magic as possible, prefers explicicity over implicity and ease of use over being the most generic tool out there.</p>
 
 <p><em>cbob</em> is far from complete at the moment, but here's what works:</p>
 
@@ -61,10 +63,13 @@
 
 <h2 id="features">Features</h2>
 
-<p>Apart from the obvious, there's
-* Automatic header dependency tracking: You don't need to declare your <code>include</code>s somewhere, <em>cbob</em> gets it right. DRY, you know.
-* Precompiled headers: By default, <em>cbob</em> precompiles your headers (and uses them) transparently.
-* Target dependencies: You can make a target dependend on other targets. When building a target, <em>cbob</em> first makes sure its dependencies are up to date. For example, you can make a <em>virtual</em> <code>all</code> target that depends on all other targets (which can have dependencies as well).</p>
+<p>Apart from the obvious, there's</p>
+
+<ul>
+<li>Automatic header dependency tracking: You don't need to declare your <code>include</code>s somewhere, <em>cbob</em> gets it right. DRY, you know.</li>
+<li>Precompiled headers: By default, <em>cbob</em> precompiles your headers (and uses them) transparently.</li>
+<li>Target dependencies: You can make a target dependend on other targets. When building a target, <em>cbob</em> first makes sure its dependencies are up to date. For example, you can make a <em>virtual</em> <code>all</code> target that depends on all other targets (which can have dependencies as well).</li>
+</ul>
 
 <h2 id="planned-features">Planned Features</h2>
 
@@ -87,9 +92,12 @@
 
 <h2 id="non-features">Non-Features</h2>
 
-<p>Things that are out of scope (though you may try to convince me otherwise):
-* Support for every language out there (but maybe support for doing, say, Python-modules written in C).
-* Support for system-wide installation (though I like <em>cbob</em> to be able to play nice with make/autotools).</p>
+<p>Things that are out of scope (though you may try to convince me otherwise):</p>
+
+<ul>
+<li>Support for every language out there (but maybe support for doing, say, Python-modules written in C).</li>
+<li>Support for system-wide installation (though I like <em>cbob</em> to be able to play nice with make/autotools).</li>
+</ul>
 
 <h2 id="feedback">Feedback</h2>
 
