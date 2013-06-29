@@ -12,4 +12,5 @@ def new(target_name):
     new_target_dir = pathhelpers.get_target_dir(target_name)
     os.makedirs(os.path.join(new_target_dir, "sources"))
     os.makedirs(os.path.join(new_target_dir, "objects"))
+    os.makedirs(os.path.join(new_target_dir, "precompiled_headers"))
     print("Added new target '{}'".format(target_name))

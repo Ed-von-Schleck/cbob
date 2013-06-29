@@ -80,3 +80,20 @@ def get_source_path_from_symlink(target_name, symlink_path):
 def get_bin_path(target_name):
     bindir = get_bindir_symlink(target_name)
     return None if bindir is None else os.path.join(os.readlink(bindir), target_name)
+
+def get_precompiled_headers_dir(target_name):
+    target_dir = get_target_dir(target_name)
+    return None if target_dir is None else os.path.join(target_dir, "precompiled_headers")
+
+def get_uncompiled_header_path(target_name, path):
+    mangled_file_name = mangle_path(path)
+    precompiled_headers_dir = get_precompiled_headers_dir(target_name)
+    return None if precompiled_headers_dir is None else os.path.join(precompiled_headers_dir, mangled_file_name + ".h")
+
+def get_precompiled_header_path(target_name, path):
+    mangled_file_name = mangle_path(path)
+    # avoid double .h appearing before .gch
+    root, ext = os.path.splitext(mangled_file_name)
+    mangled_file_name = root if ext == ".h" else mangled_file_name
+    precompiled_headers_dir = get_precompiled_headers_dir(target_name)
+    return None if precompiled_headers_dir is None else os.path.join(precompiled_headers_dir, mangled_file_name + ".h.gch")
