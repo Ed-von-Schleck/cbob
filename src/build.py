@@ -2,7 +2,6 @@ import functools
 import multiprocessing
 import os
 import os.path
-#import pickle
 import subprocess
 import sys
 
@@ -10,6 +9,10 @@ import src.pathhelpers as pathhelpers
 import src.checks as checks
 
 class _Node(object):
+    # Our dependency graph for the source files is composed of these Nodes. They are used
+    # to implement a directed acyclical graph (DAG) of file dependencies.
+    # Whe use __slots__ instead of the standard __dict__ because there might be many files
+    # and we want to save some memory here.
     __slots__ = ("file_path", "target_name", "dependencies", "last_dep_change")
 
     def __init__(self, file_path, target_name):
@@ -21,21 +24,28 @@ class _Node(object):
     def mark_dirty_recursively(self, dirty_sources, dirty_headers, object_mtime=None, depth=0):
         is_source = object_mtime is None
         if is_source:
-            # We need to check the headers even if the source is dirty, because we might need to
-            # re-precompile the headers too.
             object_file_path = pathhelpers.get_object_file_path(self.target_name, self.file_path)
             object_mtime = os.path.getmtime(object_file_path) if os.path.isfile(object_file_path) else 0
 
             precompiled_header_path = pathhelpers.get_precompiled_header_path(self.target_name, self.file_path)
             precompiled_header_mtime = os.path.getmtime(precompiled_header_path) if os.path.isfile(precompiled_header_path) else -1
 
+        # We need to check the headers even if the source is dirty, because we might need to
+        # re-precompile the headers too. To make sure the loop enters, we query the `mtime` of the source after
+        # the recursive walk over the headers returns. If this node is *not* the source, but a header, we *do*
+        # get the `mtime`. However, if that property has already been set by a previous walk, we take that instead.
         self.last_dep_change = 0 if is_source else self.last_dep_change if self.last_dep_change is not None else os.path.getmtime(self.file_path)
 
+        # The walk itself is destructive, so that every dependency is only visited once *ever*. This makes this algorithm
+        # O(N). Chances are, however, that not all nodes have to be visited, because we return as soon as one header (or
+        # it's dependencies) is newer than the corresponding object file.
         while self.dependencies and self.last_dep_change <= object_mtime:
             node = self.dependencies.pop()
             node_last_dep_change = node.mark_dirty_recursively(dirty_sources, dirty_headers, object_mtime, depth + 1)
             self.last_dep_change = max(node_last_dep_change, self.last_dep_change)
-                
+        
+        # When we are back at the start, we first look if the source needs to be recompiled. Only then we consider recompiling
+        # the headers, too.
         if is_source:
             last_change = max(self.last_dep_change, os.path.getmtime(self.file_path))
             if last_change > object_mtime:
@@ -47,11 +57,10 @@ class _Node(object):
 
         return self.last_dep_change
 
-    def clear(self):
-        self.dependencies.clear()
-
 
 def _compile(file_path, compiler_path, target_name, c_switch=False, get_output_path=None, include_pch=False):
+    # This function is later used as a partial (curried) function, with the `file_path` parameter being mapped
+    # to a list of files to compile.
     print(" ", file_path)
     cmd = [compiler_path, file_path]
     if get_output_path is not None:
@@ -62,19 +71,34 @@ def _compile(file_path, compiler_path, target_name, c_switch=False, get_output_p
         cmd += ["-fpch-preprocess", "-include", pathhelpers.get_uncompiled_header_path(target_name, file_path)]
 
     process = subprocess.Popen(cmd)
-    #print(" ".join(cmd))
     return process.wait()
 
 def _get_dep_info(file_path):
-    cmd = [pathhelpers.get_gcc_path(), "-H", "-w", "-E", "-P", file_path]
+    # The options used:
+    # * -H: prints the dotted header information
+    # * -w: suppressed warnings
+    # * -E: makes GCC stop after the preprocessing (no compilation)
+    # * -P: removes comments
+    cmd = (pathhelpers.get_gcc_path(), "-H", "-w", "-E", "-P", file_path)
+    # For some reason gcc outputs the header information over `stderr`.
+    # Not that this is documented anywhere ...
     with subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True) as process:
         out, err = process.communicate()
+    # The output looks like
+    #     . inc1.h
+    #     .. inc1inc1.h
+    #     . inc2.h
+    # etc., with inc1inc1.h being included by inc1.h. In other words, the number of dots
+    # indicates the level of nesting. Also, there are lots of lines of no interest to us.
+    # Let's ignore them.
     raw_deps = (line.partition(" ") for line in err.split("\n") if line and line[0] == ".")
     deps = [(len(dots), os.path.normpath(rest)) for (dots, sep, rest) in raw_deps]
     return file_path, deps
 
 @checks.requires_target_exists
 def build(target_name, jobs):
+    # Let's build a target! But before that, process all target dependencies
+    # recursively to make sure they are up to date.
     dependencies_dir = pathhelpers.get_dependencies_dir(target_name)
     for dep in os.listdir(dependencies_dir):
         print("Building dependency '{}'.".format(dep))
@@ -89,40 +113,41 @@ def build_target(target_name, jobs):
     # there is no need for a virtual target to be fully configured.
     sources_links = os.listdir(pathhelpers.get_sources_dir(target_name))
     if sources_links:
-        do_build_target(target_name, jobs, sources_links)
+        _do_build_target(target_name, jobs, sources_links)
     else:
         print("No sources - nothing to do.")
 
 @checks.requires_configured
-def do_build_target(target_name, jobs, sources_links=None):
+def _do_build_target(target_name, jobs, sources_links=None):
+    # Here the actual heavy lifting happens.
+    # First off, if a `jobs` parameter is given, it's passed on from the argument parser as a list.
+    # We take the first element of it. If its `None`, then `multiprocessing.Pool` will use as many
+    # processes as there are CPUs.
     if jobs is not None:
         jobs = jobs[0]
     sources_dir = pathhelpers.get_sources_dir(target_name)
     compiler_path = os.readlink(pathhelpers.get_compiler_symlink(target_name))
-    #linker_path = os.readlink(pathhelpers.get_linker_symlink(target_name))
-    gcc_path = pathhelpers.get_gcc_path()
-    deps_file_path = pathhelpers.get_deps_file_path(target_name)
+    linker_path = os.readlink(pathhelpers.get_linker_symlink(target_name))
     pool = multiprocessing.Pool(jobs)
 
+    # The `sources_list` parameter is just so that we don't have to touch the `sources` directory twice, if we
+    # have listed its content before.
     print("calculating dependencies ...", end=" ")
     sys.stdout.flush()
-    if sources_dir is None:
+    if sources_links is not None:
         sources = [pathhelpers.get_source_path_from_symlink(target_name, source) for source in sources_links]
     else:
         sources = [pathhelpers.get_source_path_from_symlink(target_name, source) for source in os.listdir(sources_dir)]
+
+    # We have two indexes: The `source_node_index` points, well, to the source nodes, while the `node_index` points to
+    # all nodes. Later we use the nodes in the `source_node_index` as root nodes for starting the search for dirty nodes.
     source_node_index = {file_path: _Node(file_path, target_name) for file_path in sources}
-    
-    # build graph
     node_index = source_node_index.copy()
 
-    #try:
-    #    with open(deps_file_path, "rb") as deps_file:
-    #        stale_node_index = pickle.load(deps_file)
-    #except (IOError, pickle.UnpicklingError):
-    #    stale_node_index = {}
-    #new_source_nodes = sources - stale_node_index.keys()
-
-    
+    # This is somewhat straight-forward if you have ever written a stream-parser (like SAX), though it adds a twist
+    # in that we save references to processed nodes in a set. It may be a bit unintuitive that we only skip a node 
+    # if it was in another node's dependencies - but note how, when we process a node, we don't add an edge to that
+    # very node, but to the node one layer *down* in the stack. Think about it for a while, then it makes sense.
     processed_nodes = set()
     for file_path, deps in pool.imap_unordered(_get_dep_info, sources):
         node = source_node_index[file_path]
@@ -144,7 +169,14 @@ def do_build_target(target_name, jobs, sources_links=None):
             parent_nodes_stack[:] = parent_nodes_stack[:current_depth]
             parent_nodes_stack[-1].dependencies.add(current_node)
             parent_nodes_stack.append(current_node)
+        processed_nodes |= node.dependencies
 
+        # For every source file, we generate a corresponding `.h` file that consists of all the
+        # `#include`s of that source file. This is the `uncompiled_header`. It is saved in one
+        # of *cbob*s mysterious directories. After we processed a source file, we check if it is
+        # up to date. We are doing that with a set comparison, because we are interested in *semantic*,
+        # not byte-for-byte equality (if that turns out to be overly slow, it can be replaced with
+        # a line-by-line comparison with a list).
         uncompiled_header_path = pathhelpers.get_uncompiled_header_path(target_name, file_path)
         changed = False
         try:
@@ -153,6 +185,8 @@ def do_build_target(target_name, jobs, sources_links=None):
                     changed = True
         except IOError:
             changed = True
+
+        # It the uncompiled header file changed, we save it and delete any existing precompiled header.
         if changed:
             with open(uncompiled_header_path, "w") as uncompiled_header:
                 uncompiled_header.writelines(includes)
@@ -162,10 +196,6 @@ def do_build_target(target_name, jobs, sources_links=None):
                 os.remove(precompiled_header_path)
             except OSError:
                 pass
-
-
-    #with open(deps_file_path, "wb") as deps_file:
-    #    pickle.dump(node_index, deps_file, -1)
     print("done.")
 
     print("determining files for recompilation ...", end=" ")
@@ -174,6 +204,8 @@ def do_build_target(target_name, jobs, sources_links=None):
     dirty_sources = set()
     dirty_headers = set()
     for source_node in source_node_index.values():
+        # This starts a depth-first recursive search for dirty (changed) source and header files.
+        # See the function comments for explanation.
         source_node.mark_dirty_recursively(dirty_sources, dirty_headers)
     print("done.")
 
@@ -212,7 +244,7 @@ def do_build_target(target_name, jobs, sources_links=None):
         # link
         object_file_names = [pathhelpers.get_object_file_path(target_name, file_path) for file_path in sources]
         bin_path = pathhelpers.get_bin_path(target_name)
-        cmd = [compiler_path, "-o", bin_path] + object_file_names
+        cmd = [linker_path, "-o", bin_path] + object_file_names
         print("linking ...")
         print(" ", bin_path)
         sys.stdout.flush()

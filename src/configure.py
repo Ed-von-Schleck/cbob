@@ -62,7 +62,7 @@ def configure(target_name, auto, force, compiler, linker, bindir):
                 print("WARNING: There's already a linker configured ({}).".format(os.readlink(linker_symlink_path)))
                 print("Use '--force' to force overwriting previous configurations.")
             else:
-                linker_path = subprocess.check_output(["which", "ld"]).strip()
+                linker_path = compiler_path
                 if linker_symlink_exists and force:
                     os.unlink(linker_symlink_path)
                 os.symlink(linker_path, linker_symlink_path)
