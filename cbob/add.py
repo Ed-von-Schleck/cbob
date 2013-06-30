@@ -8,8 +8,8 @@ from cbob.definitions import SOURCE_FILE_EXTENSIONS
 
 @checks.requires_target_exists
 def add(target_name, file_names):
+    #TODO: remove code duplication with 'remove.py'
     sources_dir = pathhelpers.get_sources_dir(target_name)
-    project_root = pathhelpers.get_project_root()
     added_file_names = []
     for file_name in file_names:
         file_name = os.path.expanduser(file_name)
@@ -26,7 +26,7 @@ def add(target_name, file_names):
                 continue
             if os.path.islink(symlink_path):
                 #TODO: only print with some kind of verbosity level
-                print("File '{}' is already a source in target '{}'.".format(actual_file_name, target_name))
+                print("File '{}' is already a source file of target '{}'.".format(actual_file_name, target_name))
                 continue
             added_file_names.append(actual_file_name)
 
@@ -35,7 +35,6 @@ def add(target_name, file_names):
             os.symlink(rel_actual_path, symlink_path)
 
     added_files_count = len(added_file_names)
-    #TODO: only print with some kind of verbosity level
     if added_files_count == 0:
         print("No files have been added to target '{}'.".format(target_name))
     elif added_files_count == 1:
