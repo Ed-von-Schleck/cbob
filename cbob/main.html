@@ -1,36 +1,40 @@
-<!DOCTYPE html><html lang="en"><head><title>src/main</title></head><meta http-equiv="Content-Type" content="text/html; charset=utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0"><meta name="groc-relative-root" content="../"><meta name="groc-document-path" content="src/main"><meta name="groc-project-path" content="src/main.py"><meta name="groc-github-url" content="https://github.com/Ed-von-Schleck/cbob"><link rel="stylesheet" type="text/css" media="all" href="../assets/style.css"><script type="text/javascript" src="../assets/behavior.js"></script><body><div id="meta"><div class="file-path"><a href="https://github.com/Ed-von-Schleck/cbob/blob/master/src/main.py">src/main.py</a></div></div><div id="document"><div class="segment"><div class="code"><div class="wrapper"><span class="kn">import</span> <span class="nn">argparse</span>
+<!DOCTYPE html><html lang="en"><head><title>cbob/main</title></head><meta http-equiv="Content-Type" content="text/html; charset=utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0"><meta name="groc-relative-root" content="../"><meta name="groc-document-path" content="cbob/main"><meta name="groc-project-path" content="cbob/main.py"><meta name="groc-github-url" content="https://github.com/Ed-von-Schleck/cbob"><link rel="stylesheet" type="text/css" media="all" href="../assets/style.css"><script type="text/javascript" src="../assets/behavior.js"></script><body><div id="meta"><div class="file-path"><a href="https://github.com/Ed-von-Schleck/cbob/blob/master/cbob/main.py">cbob/main.py</a></div></div><div id="document"><div class="segment"><div class="code"><div class="wrapper"><span class="kn">import</span> <span class="nn">argparse</span>
 
 <span class="k">def</span> <span class="nf">_init</span><span class="p">(</span><span class="n">args</span><span class="p">):</span>
-    <span class="kn">import</span> <span class="nn">src.init</span>
-    <span class="n">src</span><span class="o">.</span><span class="n">init</span><span class="o">.</span><span class="n">init</span><span class="p">()</span>
+    <span class="kn">import</span> <span class="nn">cbob.init</span>
+    <span class="n">cbob</span><span class="o">.</span><span class="n">init</span><span class="o">.</span><span class="n">init</span><span class="p">()</span>
 
 <span class="k">def</span> <span class="nf">_new</span><span class="p">(</span><span class="n">args</span><span class="p">):</span>
-    <span class="kn">import</span> <span class="nn">src.new</span>
-    <span class="n">src</span><span class="o">.</span><span class="n">new</span><span class="o">.</span><span class="n">new</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+    <span class="kn">import</span> <span class="nn">cbob.new</span>
+    <span class="n">cbob</span><span class="o">.</span><span class="n">new</span><span class="o">.</span><span class="n">new</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
 
 <span class="k">def</span> <span class="nf">_add</span><span class="p">(</span><span class="n">args</span><span class="p">):</span>
-    <span class="kn">import</span> <span class="nn">src.add</span>
-    <span class="n">src</span><span class="o">.</span><span class="n">add</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">target</span><span class="p">,</span> <span class="n">args</span><span class="o">.</span><span class="n">files</span><span class="p">)</span>
+    <span class="kn">import</span> <span class="nn">cbob.add</span>
+    <span class="n">cbob</span><span class="o">.</span><span class="n">add</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">target</span><span class="p">,</span> <span class="n">args</span><span class="o">.</span><span class="n">files</span><span class="p">)</span>
+
+<span class="k">def</span> <span class="nf">_remove</span><span class="p">(</span><span class="n">args</span><span class="p">):</span>
+    <span class="kn">import</span> <span class="nn">cbob.remove</span>
+    <span class="n">cbob</span><span class="o">.</span><span class="n">remove</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">target</span><span class="p">,</span> <span class="n">args</span><span class="o">.</span><span class="n">files</span><span class="p">)</span>
 
 <span class="k">def</span> <span class="nf">_list_</span><span class="p">(</span><span class="n">args</span><span class="p">):</span>
-    <span class="kn">import</span> <span class="nn">src.list_</span>
-    <span class="n">src</span><span class="o">.</span><span class="n">list_</span><span class="o">.</span><span class="n">list_</span><span class="p">()</span>
+    <span class="kn">import</span> <span class="nn">cbob.list_</span>
+    <span class="n">cbob</span><span class="o">.</span><span class="n">list_</span><span class="o">.</span><span class="n">list_</span><span class="p">()</span>
 
 <span class="k">def</span> <span class="nf">_show</span><span class="p">(</span><span class="n">args</span><span class="p">):</span>
-    <span class="kn">import</span> <span class="nn">src.show</span>
-    <span class="n">src</span><span class="o">.</span><span class="n">show</span><span class="o">.</span><span class="n">show</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">target</span><span class="p">)</span>
+    <span class="kn">import</span> <span class="nn">cbob.show</span>
+    <span class="n">cbob</span><span class="o">.</span><span class="n">show</span><span class="o">.</span><span class="n">show</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">target</span><span class="p">)</span>
 
 <span class="k">def</span> <span class="nf">_build</span><span class="p">(</span><span class="n">args</span><span class="p">):</span>
-    <span class="kn">import</span> <span class="nn">src.build</span>
-    <span class="n">src</span><span class="o">.</span><span class="n">build</span><span class="o">.</span><span class="n">build</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">target</span><span class="p">,</span> <span class="n">args</span><span class="o">.</span><span class="n">jobs</span><span class="p">)</span>
+    <span class="kn">import</span> <span class="nn">cbob.build</span>
+    <span class="n">cbob</span><span class="o">.</span><span class="n">build</span><span class="o">.</span><span class="n">build</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">target</span><span class="p">,</span> <span class="n">args</span><span class="o">.</span><span class="n">jobs</span><span class="p">)</span>
 
 <span class="k">def</span> <span class="nf">_depend</span><span class="p">(</span><span class="n">args</span><span class="p">):</span>
-    <span class="kn">import</span> <span class="nn">src.depend</span>
-    <span class="n">src</span><span class="o">.</span><span class="n">depend</span><span class="o">.</span><span class="n">depend</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">target</span><span class="p">,</span> <span class="n">args</span><span class="o">.</span><span class="n">dependencies</span><span class="p">)</span>
+    <span class="kn">import</span> <span class="nn">cbob.depend</span>
+    <span class="n">cbob</span><span class="o">.</span><span class="n">depend</span><span class="o">.</span><span class="n">depend</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">target</span><span class="p">,</span> <span class="n">args</span><span class="o">.</span><span class="n">dependencies</span><span class="p">)</span>
 
 <span class="k">def</span> <span class="nf">_configure</span><span class="p">(</span><span class="n">args</span><span class="p">):</span>
-    <span class="kn">import</span> <span class="nn">src.configure</span>
-    <span class="n">src</span><span class="o">.</span><span class="n">configure</span><span class="o">.</span><span class="n">configure</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">target</span><span class="p">,</span> <span class="n">args</span><span class="o">.</span><span class="n">auto</span><span class="p">,</span> <span class="n">args</span><span class="o">.</span><span class="n">force</span><span class="p">,</span> <span class="n">args</span><span class="o">.</span><span class="n">compiler</span><span class="p">,</span> <span class="n">args</span><span class="o">.</span><span class="n">linker</span><span class="p">,</span> <span class="n">args</span><span class="o">.</span><span class="n">bindir</span><span class="p">)</span>
+    <span class="kn">import</span> <span class="nn">cbob.configure</span>
+    <span class="n">cbob</span><span class="o">.</span><span class="n">configure</span><span class="o">.</span><span class="n">configure</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">target</span><span class="p">,</span> <span class="n">args</span><span class="o">.</span><span class="n">auto</span><span class="p">,</span> <span class="n">args</span><span class="o">.</span><span class="n">force</span><span class="p">,</span> <span class="n">args</span><span class="o">.</span><span class="n">compiler</span><span class="p">,</span> <span class="n">args</span><span class="o">.</span><span class="n">linker</span><span class="p">,</span> <span class="n">args</span><span class="o">.</span><span class="n">bindir</span><span class="p">)</span>
 
 <span class="k">def</span> <span class="nf">main</span><span class="p">():</span>
     <span class="n">parser</span> <span class="o">=</span> <span class="n">argparse</span><span class="o">.</span><span class="n">ArgumentParser</span><span class="p">(</span><span class="n">description</span><span class="o">=</span><span class="s">&quot;cbob builds your project.&quot;</span><span class="p">,</span> <span class="n">prog</span><span class="o">=</span><span class="s">&quot;cbob&quot;</span><span class="p">)</span>
@@ -48,6 +52,11 @@
     <span class="n">parser_add</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s">&quot;target&quot;</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s">&quot;The target to be added to.&quot;</span><span class="p">)</span>
     <span class="n">parser_add</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s">&quot;files&quot;</span><span class="p">,</span> <span class="n">metavar</span><span class="o">=</span><span class="s">&quot;file&quot;</span><span class="p">,</span> <span class="n">nargs</span><span class="o">=</span><span class="s">&quot;+&quot;</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s">&quot;The file(s) to be added (wildcards allowed).&quot;</span><span class="p">)</span>
     <span class="n">parser_add</span><span class="o">.</span><span class="n">set_defaults</span><span class="p">(</span><span class="n">func</span><span class="o">=</span><span class="n">_add</span><span class="p">)</span>
+
+    <span class="n">parser_remove</span> <span class="o">=</span> <span class="n">subparsers</span><span class="o">.</span><span class="n">add_parser</span><span class="p">(</span><span class="s">&quot;remove&quot;</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s">&quot;Remove file(s) from a target.&quot;</span><span class="p">)</span>
+    <span class="n">parser_remove</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s">&quot;target&quot;</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s">&quot;The target the files will be removed from.&quot;</span><span class="p">)</span>
+    <span class="n">parser_remove</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s">&quot;files&quot;</span><span class="p">,</span> <span class="n">metavar</span><span class="o">=</span><span class="s">&quot;file&quot;</span><span class="p">,</span> <span class="n">nargs</span><span class="o">=</span><span class="s">&quot;+&quot;</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s">&quot;The file(s) to be removed (wildcards allowed).&quot;</span><span class="p">)</span>
+    <span class="n">parser_remove</span><span class="o">.</span><span class="n">set_defaults</span><span class="p">(</span><span class="n">func</span><span class="o">=</span><span class="n">_remove</span><span class="p">)</span>
 
     <span class="n">parser_list</span> <span class="o">=</span> <span class="n">subparsers</span><span class="o">.</span><span class="n">add_parser</span><span class="p">(</span><span class="s">&quot;list&quot;</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s">&quot;List targets.&quot;</span><span class="p">)</span>
     <span class="n">parser_list</span><span class="o">.</span><span class="n">set_defaults</span><span class="p">(</span><span class="n">func</span><span class="o">=</span><span class="n">_list_</span><span class="p">)</span>

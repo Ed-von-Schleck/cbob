@@ -9,259 +9,18 @@ f.event={add:function(a,c,d,e,g){var h,i,j,k,l,m,n,o,p,q,r,s;if(!(a.nodeType===3
       "type": "file",
       "data": {
         "language": {
-          "nameMatchers": [".md"],
-          "commentsOnly": true,
-          "name": "Markdown"
+          "nameMatchers": [".py"],
+          "pygmentsLexer": "python",
+          "singleLineComment": ["#"],
+          "name": "Python"
         },
-        "sourcePath": "/home/christian/code/cbob/README.md",
-        "projectPath": "README.md",
-        "targetPath": "index",
-        "firstHeader": {
-          "type": "heading",
-          "data": {
-            "level": 1,
-            "title": "cbob",
-            "slug": "cbob",
-            "isFileHeader": true
-          },
-          "depth": 1,
-          "children": [
-            {
-              "type": "heading",
-              "data": {
-                "level": 2,
-                "title": "Usage",
-                "slug": "usage"
-              },
-              "depth": 2,
-              "children": [
-                {
-                  "type": "heading",
-                  "data": {
-                    "level": 3,
-                    "title": "Help",
-                    "slug": "help"
-                  },
-                  "depth": 3
-                }, {
-                  "type": "heading",
-                  "data": {
-                    "level": 3,
-                    "title": "Commands",
-                    "slug": "commands"
-                  },
-                  "depth": 3,
-                  "children": [
-                    {
-                      "type": "heading",
-                      "data": {
-                        "level": 4,
-                        "title": "Init cbob",
-                        "slug": "init-cbob"
-                      },
-                      "depth": 4
-                    }, {
-                      "type": "heading",
-                      "data": {
-                        "level": 4,
-                        "title": "Create a new target",
-                        "slug": "create-a-new-target"
-                      },
-                      "depth": 4
-                    }, {
-                      "type": "heading",
-                      "data": {
-                        "level": 4,
-                        "title": "Adding a file to a target",
-                        "slug": "adding-a-file-to-a-target"
-                      },
-                      "depth": 4
-                    }, {
-                      "type": "heading",
-                      "data": {
-                        "level": 4,
-                        "title": "Configuring a target",
-                        "slug": "configuring-a-target"
-                      },
-                      "depth": 4
-                    }, {
-                      "type": "heading",
-                      "data": {
-                        "level": 4,
-                        "title": "Building a target",
-                        "slug": "building-a-target"
-                      },
-                      "depth": 4
-                    }
-                  ]
-                }
-              ]
-            }, {
-              "type": "heading",
-              "data": {
-                "level": 2,
-                "title": "Features",
-                "slug": "features"
-              },
-              "depth": 2
-            }, {
-              "type": "heading",
-              "data": {
-                "level": 2,
-                "title": "Planned Features",
-                "slug": "planned-features"
-              },
-              "depth": 2
-            }, {
-              "type": "heading",
-              "data": {
-                "level": 2,
-                "title": "Maybe-Features",
-                "slug": "maybe-features"
-              },
-              "depth": 2
-            }, {
-              "type": "heading",
-              "data": {
-                "level": 2,
-                "title": "Non-Features",
-                "slug": "non-features"
-              },
-              "depth": 2
-            }, {
-              "type": "heading",
-              "data": {
-                "level": 2,
-                "title": "Feedback",
-                "slug": "feedback"
-              },
-              "depth": 2
-            }
-          ]
-        },
+        "sourcePath": "/home/christian/code/cbob/cbob.py",
+        "projectPath": "cbob.py",
+        "targetPath": "cbob",
         "title": "cbob"
       },
       "depth": 1,
-      "outline": [
-        {
-          "type": "heading",
-          "data": {
-            "level": 2,
-            "title": "Usage",
-            "slug": "usage"
-          },
-          "depth": 2,
-          "children": [
-            {
-              "type": "heading",
-              "data": {
-                "level": 3,
-                "title": "Help",
-                "slug": "help"
-              },
-              "depth": 3
-            }, {
-              "type": "heading",
-              "data": {
-                "level": 3,
-                "title": "Commands",
-                "slug": "commands"
-              },
-              "depth": 3,
-              "children": [
-                {
-                  "type": "heading",
-                  "data": {
-                    "level": 4,
-                    "title": "Init cbob",
-                    "slug": "init-cbob"
-                  },
-                  "depth": 4
-                }, {
-                  "type": "heading",
-                  "data": {
-                    "level": 4,
-                    "title": "Create a new target",
-                    "slug": "create-a-new-target"
-                  },
-                  "depth": 4
-                }, {
-                  "type": "heading",
-                  "data": {
-                    "level": 4,
-                    "title": "Adding a file to a target",
-                    "slug": "adding-a-file-to-a-target"
-                  },
-                  "depth": 4
-                }, {
-                  "type": "heading",
-                  "data": {
-                    "level": 4,
-                    "title": "Configuring a target",
-                    "slug": "configuring-a-target"
-                  },
-                  "depth": 4
-                }, {
-                  "type": "heading",
-                  "data": {
-                    "level": 4,
-                    "title": "Building a target",
-                    "slug": "building-a-target"
-                  },
-                  "depth": 4
-                }
-              ]
-            }
-          ]
-        }, {
-          "type": "heading",
-          "data": {
-            "level": 2,
-            "title": "Features",
-            "slug": "features"
-          },
-          "depth": 2
-        }, {
-          "type": "heading",
-          "data": {
-            "level": 2,
-            "title": "Planned Features",
-            "slug": "planned-features"
-          },
-          "depth": 2
-        }, {
-          "type": "heading",
-          "data": {
-            "level": 2,
-            "title": "Maybe-Features",
-            "slug": "maybe-features"
-          },
-          "depth": 2
-        }, {
-          "type": "heading",
-          "data": {
-            "level": 2,
-            "title": "Non-Features",
-            "slug": "non-features"
-          },
-          "depth": 2
-        }, {
-          "type": "heading",
-          "data": {
-            "level": 2,
-            "title": "Feedback",
-            "slug": "feedback"
-          },
-          "depth": 2
-        }
-      ]
-    }, {
-      "type": "folder",
-      "data": {
-        "path": "src",
-        "title": "src"
-      },
-      "depth": 1,
+      "outline": [],
       "children": [
         {
           "type": "file",
@@ -272,9 +31,9 @@ f.event={add:function(a,c,d,e,g){var h,i,j,k,l,m,n,o,p,q,r,s;if(!(a.nodeType===3
               "singleLineComment": ["#"],
               "name": "Python"
             },
-            "sourcePath": "/home/christian/code/cbob/src/__init__.py",
-            "projectPath": "src/__init__.py",
-            "targetPath": "src/__init__",
+            "sourcePath": "/home/christian/code/cbob/cbob/__init__.py",
+            "projectPath": "cbob/__init__.py",
+            "targetPath": "cbob/__init__",
             "title": "__init__"
           },
           "depth": 2,
@@ -288,9 +47,9 @@ f.event={add:function(a,c,d,e,g){var h,i,j,k,l,m,n,o,p,q,r,s;if(!(a.nodeType===3
               "singleLineComment": ["#"],
               "name": "Python"
             },
-            "sourcePath": "/home/christian/code/cbob/src/add.py",
-            "projectPath": "src/add.py",
-            "targetPath": "src/add",
+            "sourcePath": "/home/christian/code/cbob/cbob/add.py",
+            "projectPath": "cbob/add.py",
+            "targetPath": "cbob/add",
             "title": "add"
           },
           "depth": 2,
@@ -304,9 +63,9 @@ f.event={add:function(a,c,d,e,g){var h,i,j,k,l,m,n,o,p,q,r,s;if(!(a.nodeType===3
               "singleLineComment": ["#"],
               "name": "Python"
             },
-            "sourcePath": "/home/christian/code/cbob/src/build.py",
-            "projectPath": "src/build.py",
-            "targetPath": "src/build",
+            "sourcePath": "/home/christian/code/cbob/cbob/build.py",
+            "projectPath": "cbob/build.py",
+            "targetPath": "cbob/build",
             "title": "build"
           },
           "depth": 2,
@@ -320,9 +79,9 @@ f.event={add:function(a,c,d,e,g){var h,i,j,k,l,m,n,o,p,q,r,s;if(!(a.nodeType===3
               "singleLineComment": ["#"],
               "name": "Python"
             },
-            "sourcePath": "/home/christian/code/cbob/src/checks.py",
-            "projectPath": "src/checks.py",
-            "targetPath": "src/checks",
+            "sourcePath": "/home/christian/code/cbob/cbob/checks.py",
+            "projectPath": "cbob/checks.py",
+            "targetPath": "cbob/checks",
             "title": "checks"
           },
           "depth": 2,
@@ -336,9 +95,9 @@ f.event={add:function(a,c,d,e,g){var h,i,j,k,l,m,n,o,p,q,r,s;if(!(a.nodeType===3
               "singleLineComment": ["#"],
               "name": "Python"
             },
-            "sourcePath": "/home/christian/code/cbob/src/configure.py",
-            "projectPath": "src/configure.py",
-            "targetPath": "src/configure",
+            "sourcePath": "/home/christian/code/cbob/cbob/configure.py",
+            "projectPath": "cbob/configure.py",
+            "targetPath": "cbob/configure",
             "title": "configure"
           },
           "depth": 2,
@@ -352,9 +111,9 @@ f.event={add:function(a,c,d,e,g){var h,i,j,k,l,m,n,o,p,q,r,s;if(!(a.nodeType===3
               "singleLineComment": ["#"],
               "name": "Python"
             },
-            "sourcePath": "/home/christian/code/cbob/src/definitions.py",
-            "projectPath": "src/definitions.py",
-            "targetPath": "src/definitions",
+            "sourcePath": "/home/christian/code/cbob/cbob/definitions.py",
+            "projectPath": "cbob/definitions.py",
+            "targetPath": "cbob/definitions",
             "title": "definitions"
           },
           "depth": 2,
@@ -368,9 +127,9 @@ f.event={add:function(a,c,d,e,g){var h,i,j,k,l,m,n,o,p,q,r,s;if(!(a.nodeType===3
               "singleLineComment": ["#"],
               "name": "Python"
             },
-            "sourcePath": "/home/christian/code/cbob/src/depend.py",
-            "projectPath": "src/depend.py",
-            "targetPath": "src/depend",
+            "sourcePath": "/home/christian/code/cbob/cbob/depend.py",
+            "projectPath": "cbob/depend.py",
+            "targetPath": "cbob/depend",
             "title": "depend"
           },
           "depth": 2,
@@ -384,9 +143,9 @@ f.event={add:function(a,c,d,e,g){var h,i,j,k,l,m,n,o,p,q,r,s;if(!(a.nodeType===3
               "singleLineComment": ["#"],
               "name": "Python"
             },
-            "sourcePath": "/home/christian/code/cbob/src/init.py",
-            "projectPath": "src/init.py",
-            "targetPath": "src/init",
+            "sourcePath": "/home/christian/code/cbob/cbob/init.py",
+            "projectPath": "cbob/init.py",
+            "targetPath": "cbob/init",
             "title": "init"
           },
           "depth": 2,
@@ -400,9 +159,9 @@ f.event={add:function(a,c,d,e,g){var h,i,j,k,l,m,n,o,p,q,r,s;if(!(a.nodeType===3
               "singleLineComment": ["#"],
               "name": "Python"
             },
-            "sourcePath": "/home/christian/code/cbob/src/list_.py",
-            "projectPath": "src/list_.py",
-            "targetPath": "src/list_",
+            "sourcePath": "/home/christian/code/cbob/cbob/list_.py",
+            "projectPath": "cbob/list_.py",
+            "targetPath": "cbob/list_",
             "title": "list_"
           },
           "depth": 2,
@@ -416,9 +175,9 @@ f.event={add:function(a,c,d,e,g){var h,i,j,k,l,m,n,o,p,q,r,s;if(!(a.nodeType===3
               "singleLineComment": ["#"],
               "name": "Python"
             },
-            "sourcePath": "/home/christian/code/cbob/src/main.py",
-            "projectPath": "src/main.py",
-            "targetPath": "src/main",
+            "sourcePath": "/home/christian/code/cbob/cbob/main.py",
+            "projectPath": "cbob/main.py",
+            "targetPath": "cbob/main",
             "title": "main"
           },
           "depth": 2,
@@ -432,9 +191,9 @@ f.event={add:function(a,c,d,e,g){var h,i,j,k,l,m,n,o,p,q,r,s;if(!(a.nodeType===3
               "singleLineComment": ["#"],
               "name": "Python"
             },
-            "sourcePath": "/home/christian/code/cbob/src/new.py",
-            "projectPath": "src/new.py",
-            "targetPath": "src/new",
+            "sourcePath": "/home/christian/code/cbob/cbob/new.py",
+            "projectPath": "cbob/new.py",
+            "targetPath": "cbob/new",
             "title": "new"
           },
           "depth": 2,
@@ -448,9 +207,9 @@ f.event={add:function(a,c,d,e,g){var h,i,j,k,l,m,n,o,p,q,r,s;if(!(a.nodeType===3
               "singleLineComment": ["#"],
               "name": "Python"
             },
-            "sourcePath": "/home/christian/code/cbob/src/pathhelpers.py",
-            "projectPath": "src/pathhelpers.py",
-            "targetPath": "src/pathhelpers",
+            "sourcePath": "/home/christian/code/cbob/cbob/pathhelpers.py",
+            "projectPath": "cbob/pathhelpers.py",
+            "targetPath": "cbob/pathhelpers",
             "title": "pathhelpers"
           },
           "depth": 2,
@@ -464,9 +223,25 @@ f.event={add:function(a,c,d,e,g){var h,i,j,k,l,m,n,o,p,q,r,s;if(!(a.nodeType===3
               "singleLineComment": ["#"],
               "name": "Python"
             },
-            "sourcePath": "/home/christian/code/cbob/src/show.py",
-            "projectPath": "src/show.py",
-            "targetPath": "src/show",
+            "sourcePath": "/home/christian/code/cbob/cbob/remove.py",
+            "projectPath": "cbob/remove.py",
+            "targetPath": "cbob/remove",
+            "title": "remove"
+          },
+          "depth": 2,
+          "outline": []
+        }, {
+          "type": "file",
+          "data": {
+            "language": {
+              "nameMatchers": [".py"],
+              "pygmentsLexer": "python",
+              "singleLineComment": ["#"],
+              "name": "Python"
+            },
+            "sourcePath": "/home/christian/code/cbob/cbob/show.py",
+            "projectPath": "cbob/show.py",
+            "targetPath": "cbob/show",
             "title": "show"
           },
           "depth": 2,
