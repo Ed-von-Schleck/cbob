@@ -3,7 +3,7 @@ import os
 import cbob.checks as checks
 import cbob.pathhelpers as pathhelpers
 
-@checks.requires_target_exists
+@checks.requires_initialized
 def new(target_name):
     target_name = target_name.lower()
     if checks.target_exists(target_name):
