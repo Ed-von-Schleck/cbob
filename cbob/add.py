@@ -2,9 +2,9 @@ import glob
 import os
 import os.path
 
-import src.checks as checks
-import src.pathhelpers as pathhelpers
-from src.definitions import SOURCE_FILE_EXTENSIONS
+import cbob.checks as checks
+import cbob.pathhelpers as pathhelpers
+from cbob.definitions import SOURCE_FILE_EXTENSIONS
 
 @checks.requires_target_exists
 def add(target_name, file_names):

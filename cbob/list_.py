@@ -1,6 +1,6 @@
 import os
 
-import src.pathhelpers as pathhelpers
+import cbob.pathhelpers as pathhelpers
 
 def list_():
     targets_dir = pathhelpers.get_targets_dir()

@@ -1,7 +1,7 @@
 import os
 
-import src.pathhelpers as pathhelpers
-import src.checks as checks
+import cbob.pathhelpers as pathhelpers
+import cbob.checks as checks
 
 @checks.requires_target_exists
 def show(target_name):

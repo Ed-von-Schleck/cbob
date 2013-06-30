@@ -7,4 +7,5 @@ def init():
         print("ERROR: cbob is already initialized in", cbob_path)
         exit(1)
     os.makedirs(".cbob/targets")
+    os.makedirs(".cbob/subprojects")
     print("Initialized cbob in", cbob_path)

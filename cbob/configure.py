@@ -2,8 +2,8 @@ import os
 import os.path
 import subprocess
 
-import src.checks as checks
-import src.pathhelpers as pathhelpers
+import cbob.checks as checks
+import cbob.pathhelpers as pathhelpers
 
 def _guess_target_language(target_name):
     sources_dir = pathhelpers.get_sources_dir(target_name)

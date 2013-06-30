@@ -5,8 +5,8 @@ import os.path
 import subprocess
 import sys
 
-import src.pathhelpers as pathhelpers
-import src.checks as checks
+import cbob.pathhelpers as pathhelpers
+import cbob.checks as checks
 
 class _Node(object):
     # Our dependency graph for the source files is composed of these Nodes. They are used

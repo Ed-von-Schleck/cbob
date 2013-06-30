@@ -1,7 +1,7 @@
 import functools
 import os.path
 
-import src.pathhelpers as pathhelpers
+import cbob.pathhelpers as pathhelpers
 
 def is_initialized_recursive():
     return pathhelpers.get_project_root() is not None

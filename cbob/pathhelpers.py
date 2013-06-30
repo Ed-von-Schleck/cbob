@@ -101,3 +101,6 @@ def get_precompiled_header_path(target_name, path):
 def get_dependencies_dir(target_name):
     target_dir = get_target_dir(target_name)
     return None if target_dir is None else os.path.join(target_dir, "dependencies")
+
+def get_submodule_root(submodule_name):
+    pass

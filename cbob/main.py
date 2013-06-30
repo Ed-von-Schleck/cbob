@@ -1,36 +1,40 @@
 import argparse
 
 def _init(args):
-    import src.init
-    src.init.init()
+    import cbob.init
+    cbob.init.init()
 
 def _new(args):
-    import src.new
-    src.new.new(args.name)
+    import cbob.new
+    cbob.new.new(args.name)
 
 def _add(args):
-    import src.add
-    src.add.add(args.target, args.files)
+    import cbob.add
+    cbob.add.add(args.target, args.files)
+
+def _remove(args):
+    import cbob.remove
+    cbob.remove.remove(args.target, args.files)
 
 def _list_(args):
-    import src.list_
-    src.list_.list_()
+    import cbob.list_
+    cbob.list_.list_()
 
 def _show(args):
-    import src.show
-    src.show.show(args.target)
+    import cbob.show
+    cbob.show.show(args.target)
 
 def _build(args):
-    import src.build
-    src.build.build(args.target, args.jobs)
+    import cbob.build
+    cbob.build.build(args.target, args.jobs)
 
 def _depend(args):
-    import src.depend
-    src.depend.depend(args.target, args.dependencies)
+    import cbob.depend
+    cbob.depend.depend(args.target, args.dependencies)
 
 def _configure(args):
-    import src.configure
-    src.configure.configure(args.target, args.auto, args.force, args.compiler, args.linker, args.bindir)
+    import cbob.configure
+    cbob.configure.configure(args.target, args.auto, args.force, args.compiler, args.linker, args.bindir)
 
 def main():
     parser = argparse.ArgumentParser(description="cbob builds your project.", prog="cbob")
@@ -48,6 +52,11 @@ def main():
     parser_add.add_argument("target", help="The target to be added to.")
     parser_add.add_argument("files", metavar="file", nargs="+", help="The file(s) to be added (wildcards allowed).")
     parser_add.set_defaults(func=_add)
+
+    parser_remove = subparsers.add_parser("remove", help="Remove file(s) from a target.")
+    parser_remove.add_argument("target", help="The target the files will be removed from.")
+    parser_remove.add_argument("files", metavar="file", nargs="+", help="The file(s) to be removed (wildcards allowed).")
+    parser_remove.set_defaults(func=_remove)
 
     parser_list = subparsers.add_parser("list", help="List targets.")
     parser_list.set_defaults(func=_list_)
