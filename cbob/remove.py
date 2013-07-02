@@ -10,12 +10,7 @@ def remove(target_name, file_names):
     #TODO: remove code duplication with 'add.py'
     sources_dir = pathhelpers.get_sources_dir(target_name)
     removed_file_names = []
-    for file_name in file_names:
-        file_name = os.path.expanduser(file_name)
-        file_list = glob.glob(file_name)
-        if not file_list:
-            print("No match for '{}'.".format(file_name))
-            continue
+    for source_glob, file_list in expand_glob(source_globs):
         for actual_file_name in file_list:
             mangled_file_name = pathhelpers.mangle_path(actual_file_name)
             symlink_path = os.path.join(sources_dir, mangled_file_name)

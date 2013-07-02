@@ -17,8 +17,8 @@ def requires_initialized(func):
         return func(*args, **kwargs)
     return wrapper
 
-def target_exists(target_name):
-    target_dir = pathhelpers.get_target_dir(target_name)
+def target_exists(target_name, subproject_names=None):
+    target_dir = pathhelpers.get_target_dir(target_name, subproject_names)
     return target_dir is not None and os.path.isdir(target_dir)
 
 def check_target_exists(target_name):
@@ -59,3 +59,17 @@ def requires_configured(func):
         return func(target_name, *args, **kwargs)
     return wrapper
 
+def subprojects_exist(subproject_names):
+    return pathhelpers.get_subproject_root(subproject_names) is not None
+
+def check_subprojects_exist(subproject_names):
+    if not subprojects_exist(subproject_names):
+        print("ERROR: Subproject '{}' does not exist.".format(".".join(subproject_names)))
+        exit(1)
+
+def is_valid_subproject_path(subproject_path, subproject_names=None):
+    # checks if path is a subpath of the super-project,
+    # not if the path is a valid path itself
+    abs_subproject_path = os.path.abspath(subproject_path)
+    project_root = pathhelpers.get_project_root() if subproject_names is None else pathhelpers.get_subproject_root(subproject_names)
+    return os.path.commonprefix((abs_subproject_path, project_root)) == project_root

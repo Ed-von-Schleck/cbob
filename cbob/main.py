@@ -1,28 +1,29 @@
+import logging
 import argparse
 
+from cbob.error import CbobError
+import cbob.project as project
+
 def _init(args):
-    import cbob.init
-    cbob.init.init()
+    project.init()
 
 def _new(args):
-    import cbob.new
-    cbob.new.new(args.name)
+    project.get_project().new_target(args.name)
 
 def _add(args):
-    import cbob.add
-    cbob.add.add(args.target, args.files)
+    target = project.get_project().targets[args.target]
+    target.add_sources(args.files)
 
 def _remove(args):
-    import cbob.remove
-    cbob.remove.remove(args.target, args.files)
+    target = project.get_project().targets[args.target]
+    target.remove_sources(args.files)
 
 def _list_(args):
-    import cbob.list_
-    cbob.list_.list_()
+    project.get_project().list_targets()
 
 def _show(args):
-    import cbob.show
-    cbob.show.show(args.target)
+    target = project.get_project().targets[args.target]
+    target.show_sources()
 
 def _build(args):
     import cbob.build
@@ -36,8 +37,16 @@ def _configure(args):
     import cbob.configure
     cbob.configure.configure(args.target, args.auto, args.force, args.compiler, args.linker, args.bindir)
 
+def _subadd(args):
+    import cbob.subadd
+    cbob.subadd.subadd(args.projects)
+
 def main():
     parser = argparse.ArgumentParser(description="cbob builds your project.", prog="cbob")
+    verbosity = parser.add_mutually_exclusive_group()
+    verbosity.add_argument("-v", "--verbose", help="print more verbose output", action="store_const", const=logging.INFO, dest="verbosity", default=logging.WARNING)
+    verbosity.add_argument("-q", "--quiet", help="be silent", action="store_const", const=logging.ERROR, dest="verbosity", default=logging.WARNING)
+    verbosity.add_argument("-d", "--debug", help="print lots of debug output", action="store_const", const=logging.DEBUG, dest="verbosity", default=logging.WARNING)
     
     subparsers = parser.add_subparsers(help="Invoke command.")
 
@@ -70,6 +79,10 @@ def main():
     parser_build.add_argument("-j", "--jobs", nargs=1, type=int, help="The target to build.")
     parser_build.set_defaults(func=_build)
 
+    parser_subadd = subparsers.add_parser("subadd", help="Make a target depend on other targets.")
+    parser_subadd.add_argument("projects", metavar="project", nargs="+", help="A cbob project to be used as a sub-project.")
+    parser_subadd.set_defaults(func=_subadd)
+
     parser_depend = subparsers.add_parser("depend", help="Make a target depend on other targets.")
     parser_depend.add_argument("target", help="The target that requires the dependencies.")
     parser_depend.add_argument("dependencies", metavar="dependency", nargs="+", help="The target(s) that are depended on.")
@@ -88,4 +101,9 @@ def main():
     parser_configure.set_defaults(func=_configure)
 
     args = parser.parse_args()
-    args.func(args)
+    logging.basicConfig(format="%(levelname)s: %(message)s", level=args.verbosity)
+    try:
+        args.func(args)
+    except CbobError as e:
+        logging.error(e)
+    exit(0)

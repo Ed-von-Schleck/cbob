@@ -1,7 +1,24 @@
-import collections
 import os
-import os.path
+from os.path import normpath, join
 
+def read_symlink(symlink_name, directory):
+    return normpath(join(directory, os.readlink(join(directory, symlink_name))))
+
+def mangle_path(project_root, path):
+    abs_actual_file_path = os.path.abspath(path)
+    norm_actual_file_path = os.path.normpath(os.path.relpath(abs_actual_file_path, project_root))
+    return norm_actual_file_path.replace(os.sep, "_")
+
+def expand_glob(raw_globs):
+    import glob
+    for raw_glob in raw_globs:
+        expanded_glob = glob.iglob(os.path.expanduser(raw_glob))
+        if not expanded_glob:
+            logging.warning("No match for '{}'.".format(raw_glob))
+            continue
+        yield (raw_glob, expanded_glob)
+
+"""
 SubprojectTarget = collections.namedtuple("SubprojectTarget", ("subprojects", "target")) 
 
 def get_project_root():
@@ -19,15 +36,18 @@ def get_project_root():
     return get_project_root._project_root
 
 def get_subprojects_dir(subproject_names=None):
-    if not subproject_names:
-        project_root = get_project_root()
-    else:
-        project_root = get_subprojects_dir(subproject_names)
+    project_root = get_project_root() if subproject_names is None else get_subproject_root(subproject_names)
     return None if project_root is None else os.path.join(project_root, ".cbob", "subprojects")
 
 def get_subproject_root(subproject_names):
-    subprojects_dir = get_subprojects_dir(subprojects_dir[1:])
-    return None if subprojects_dir is None else os.readlink(os.path.join(subprojects_dir, subproject_names))
+    project_root = get_project_root()
+    for subproject_name in subproject_names:
+        subprojects_dir = os.path.join(project_root, ".cbob", "subprojects")
+        try:
+            project_root = os.readlink(os.path.join(subprojects_dir, subproject_name))
+        except OSError:
+            return None
+    return project_root
 
 def split_subprojects_target(dottet_target_name):
     splitted = dottet_target_name.split(".")
@@ -120,3 +140,4 @@ def get_precompiled_header_path(target_name, path, subproject_names=None):
 def get_dependencies_dir(target_name, subproject_names=None):
     target_dir = get_target_dir(target_name, subproject_names)
     return None if target_dir is None else os.path.join(target_dir, "dependencies")
+"""
