@@ -46,8 +46,12 @@ def _depend(args):
     target.depend_on(args.dependencies)
 
 def _configure(args):
-    import cbob.configure
-    cbob.configure.configure(args.target, args.auto, args.force, args.compiler, args.linker, args.bindir)
+    try:
+        target = project.get_project().targets[args.target]
+    except KeyError:
+        from cbob.error import TargetDoesntExistError
+        raise TargetDoesntExistError(args.target)
+    target.configure(args.auto, args.force, args.compiler, args.linker, args.bindir)
 
 def _subadd(args):
     import cbob.subadd

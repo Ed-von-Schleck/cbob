@@ -9,7 +9,7 @@ from cbob.pathhelpers import read_symlink, mangle_path, expand_glob, make_rel_sy
 from cbob.definitions import SOURCE_FILE_EXTENSIONS
 
 class Target(object):
-    __slots__ = ("path", "name", "_sources", "project", "_dependencies", "_compiler", "_linker", "_bin_dir")
+    __slots__ = ("path", "name", "_sources", "project", "_dependencies", "_compiler", "_linker", "_bin_dir", "_language")
 
     def __init__(self, path, project):
         self.path = path
@@ -20,6 +20,7 @@ class Target(object):
         self._compiler = None
         self._linker = None
         self._bin_dir = None
+        self._language = None
 
     @property
     def sources(self):
@@ -38,20 +39,35 @@ class Target(object):
     @property
     def compiler(self):
         if self._compiler is None:
-            self._compiler = os.readlink(join(self.path, "compiler"))
+            try:
+                self._compiler = os.readlink(join(self.path, "compiler"))
+            except OSError:
+                return None
         return self._compiler
 
     @property
     def linker(self):
         if self._linker is None:
-            self._linker = os.readlink(join(self.path, "linker"))
+            try:
+                self._linker = os.readlink(join(self.path, "linker"))
+            except OSError:
+                return None
         return self._linker
 
     @property
     def bin_dir(self):
         if self._bin_dir is None:
-            self._bin_dir  = os.readlink(join(self.path, "bin_dir"))
+            try:
+                self._bin_dir= os.readlink(join(self.path, "bin_dir"))
+            except OSError:
+                return None
         return self._bin_dir
+
+    @property
+    def language(self):
+        if self._language is None:
+            self._language = self._guess_target_language()
+        return self._language
 
     def add_sources(self, source_globs):
         sources_dir = join(self.path, "sources")
@@ -259,6 +275,73 @@ class Target(object):
             logging.info("done.")
         else:
             logging.info("Nothing to do.")
+
+    def _guess_target_language(self):
+        for file_name in self.sources:
+            root, ext = os.path.splitext(file_name)
+            ext = ext.lower()
+            if ext == ".c":
+                return "C"
+            elif ext in (".cc", ".cpp", "c++", ".cxx"):
+                return "C++"
+        return None
+
+
+
+    def configure(self, auto, force, compiler, linker, bin_dir):
+        if compiler is not None:
+            os.symlink(compiler, join(self.path, "compiler"))
+            self._compiler = None
+        if linker is not None:
+            os.symlink(linker, join(self.path, "linker"))
+            self._linker = None
+        if bin_dir is not None:
+            os.symlink(bin_dir, join(self.path, "bin_dir"))
+            self._bin_dir = None
+        if auto:
+            if compiler is None:
+                if self.compiler is not None and not force:
+                    logging.warning("There's already a compiler configured. Use '--force' to overwrite current configuration")
+                else:
+                    try:
+                        if self.language is "C":
+                            compiler_path = subprocess.check_output(["which", "gcc"]).strip()
+                        elif lang == "C++":
+                            compiler_path = subprocess.check_output(["which", "g++"]).strip()
+                        else:
+                            from cbob.error import CbobError
+                            raise CbobError("unable to guess the language of the target's sources. Please configure manually")
+                    except subprocess.CalledProcessError:
+                        from cbob.error import CbobError
+                        raise CbobError("no compiler for language '{}' found (might be cbob's fault).".format(self.language))
+                    compiler_symlink = join(self.path, "compiler")
+                    if self.compiler is not None and force:
+                        os.unlink(compiler_symlink)
+                    os.symlink(compiler_path, compiler_symlink)
+                    self._compiler = None
+            if linker is None:
+                if self.linker is not None and not force:
+                    logging.warning("There's already a linker configured. Use '--force' to overwrite current configuration")
+                else:
+                    linker_symlink = join(self.path, "linker")
+                    if self.linker is not None and force:
+                        os.unlink(linker_symlink)
+                    os.symlink(self.compiler, linker_symlink)
+                    self._linker = None
+            if bin_dir is None:
+                if self.bin_dir is not None and not force:
+                    logging.warning("There's already a binary output directory configured. Use '--force' to overwrite current configuration")
+                else:
+                    bin_dir_symlink = join(self.path, "bin_dir")
+                    if self.bin_dir is not None and force:
+                        os.unlink(bin_dir_symlink)
+                    assumed_bindir = os.path.join(self.project.root_path, "bin")
+                    bindir_auto = assumed_bindir if os.path.isdir(assumed_bindir) else self.project.root_path
+                    os.symlink(bindir_auto, bin_dir_symlink)
+                    self._bin_dir = None
+        logging.info("compiler: '{}', "
+                     "linker: '{}', "
+                     "binary output directory: '{}'".format(self.compiler, self.linker, self.bin_dir))
 
 
 def _get_dep_info(file_path, gcc_path):
