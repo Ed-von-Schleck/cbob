@@ -73,18 +73,17 @@ Planned Features
 ----------------
 
 * Runners: Run code (shell files or binaries) before or after compiling (like for checks and tests).
-* Hash-based dependency-tracking: In addition to looking at `mtime`s of files, *cbob* will look at the SHA{256,512} hash value of a (preprocessed) source to determine if it has changed, or maybe changed back to a previously compiled object file that is still in the object file cache.
 * Options: Make it easy to define `--enable-foo` style configuration options.
 * Libtool support: Use libtool to make building libraries easier.
 * Plugins: Add features (or change how *cbob* works) by hooking custom Python code into *cbob*.
-* Documentation: Document everything thoroughly and write a tutorial.
+* Sub-projects: Let *cbob* handle projects in subdirectories (think of git submodules, and stuff like pre-checks as *cbob*-projects, hosted on github, as easily re-usable recipies).
 
 Maybe-Features
 --------------
 
 * Target overlays: A target that just overlays some option (e.g. exchanging `-Og` with `-O2` in the CFLAGS), but transparently follows its parent target's changes (e.g. think of a `release` overlay for the `development` target). So far, I haven't had an idea how to implement this elegantly.
+* Hash-based dependency-tracking: In addition to looking at `mtime`s of files, *cbob* will look at the SHA{256,512} hash value of a (preprocessed) source to determine if it has changed, or maybe changed back to a previously compiled object file that is still in the object file cache.
 * Support for similar languages, e.g. D or Rust
-* Sub-projects: Let *cbob* handle projects in subdirectories (think of git submodules, and stuff like pre-checks as *cbob*-projects, hosted on github, as easily re-usable recipies).
 
 Non-Features
 ------------
@@ -94,9 +93,16 @@ Things that are out of scope (though you may try to convince me otherwise):
 * Support for every language out there (but maybe support for doing, say, Python-modules written in C).
 * Support for system-wide installation (though I like *cbob* to be able to play nice with make/autotools).
 
+Todo
+----
+
+* Tests: Both unit-tests and automated project deployment tests, including fake large scale project. Not started yet.
+* Documentation: Yeah. And Tutorials. It's coming once most planned features are in place.
+* API: Expose and document an API for commands (but nothing low-level - there's gonna be plugins for that).
+
 Feedback
 --------
 
 As you obviously just stumbled over this very new piece of software, I am very much interested in your opinion about it (try it - it ist usable? How is it better/worse than other tools? Is it fast enough? Is it documented enough? Can it do enough? Is it cool enough?). Just open an issue on github and drop a line or two there.
 
-Better yet, contribute to it. It is written in Python (though in a style that lets me transition to C; I haven't made up my mind about it yet), so it's fun. I'll gladly take pull requests.
+Better yet, contribute to it. It is written in Python, so it's fun. I'll gladly take pull requests.
