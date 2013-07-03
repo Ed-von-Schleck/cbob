@@ -6,4 +6,9 @@ class CbobError(Exception):
 
 class NotInitializedError(CbobError):
     def __init__(self):
-        super().init(self, "project not initialized")
+        super().__init__("project not initialized.\nType 'cbob init' to initialize cbob here.")
+
+class TargetDoesntExistError(CbobError):
+    def __init__(self, target_name):
+        super().__init__("target '{}' doesn't exist.\nType 'cbob list' to show existing targets.".format(target_name))
+

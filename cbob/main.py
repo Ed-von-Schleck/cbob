@@ -22,16 +22,28 @@ def _list_(args):
     project.get_project().list_targets()
 
 def _show(args):
-    target = project.get_project().targets[args.target]
+    try:
+        target = project.get_project().targets[args.target]
+    except KeyError:
+        from cbob.error import TargetDoesntExistError
+        raise TargetDoesntExistError(args.target)
     target.show_sources()
 
 def _build(args):
-    import cbob.build
-    cbob.build.build(args.target, args.jobs)
+    try:
+        target = project.get_project().targets[args.target]
+    except KeyError:
+        from cbob.error import TargetDoesntExistError
+        raise TargetDoesntExistError(args.target)
+    target.build(args.jobs)
 
 def _depend(args):
-    import cbob.depend
-    cbob.depend.depend(args.target, args.dependencies)
+    try:
+        target = project.get_project().targets[args.target]
+    except KeyError:
+        from cbob.error import TargetDoesntExistError
+        raise TargetDoesntExistError(args.target)
+    target.depend_on(args.dependencies)
 
 def _configure(args):
     import cbob.configure
@@ -106,4 +118,5 @@ def main():
         args.func(args)
     except CbobError as e:
         logging.error(e)
+        exit(1)
     exit(0)

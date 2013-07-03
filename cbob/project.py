@@ -5,9 +5,7 @@ from os.path import normpath, join, isdir, dirname, basename, abspath
 from cbob.target import Target
 from cbob.pathhelpers import read_symlink
 
-class _Project(object):
-
-    __slots__ = ("root_path", "name", "_subprojects", "_targets")
+class Project(object):
 
     def __init__(self, root_path=None):
         if root_path is None:
@@ -28,6 +26,7 @@ class _Project(object):
         self.name = basename(self.root_path)
         self._subprojects = None
         self._targets = None
+        self._gcc_path = None
 
     @property
     def targets(self):
@@ -40,8 +39,20 @@ class _Project(object):
     def subprojects(self):
         if self._subprojects is None:
             subprojects_dir = join(self.root_path, ".cbob", "subprojects")
-            self.subprojects = {name: _Project(read_symlink(name, subprojects_dir)) for name in os.listdir(subprojects_dir)}
+            self.subprojects = {name: Project(read_symlink(name, subprojects_dir)) for name in os.listdir(subprojects_dir)}
         return self._subprojects
+
+    @property
+    def gcc_path(self):
+        if self._gcc_path is None:
+            import subprocess
+            try:
+                gcc_path = subprocess.check_output(('which', 'gcc'), universal_newlines=True).strip()
+            except subprocess.CalledProcessError as e:
+                from cbob.error import CbobError
+                raise CbobError("GCC wasn't found ('which gcc' wasn't successful")
+            self._gcc_path = gcc_path
+        return self._gcc_path
 
     def new_target(self, raw_target_name):
         *subproject_names, target_name = raw_target_name.split(".")
@@ -75,15 +86,14 @@ class _Project(object):
             symlink_path = join(directory, mangled_file_name)
 
             abs_file_path = os.path.abspath(file_name)
-            rel_file_path = os.path.normpath(os.path.relpath(abs_file_path, directory))
-            yield (file_name, rel_file_path, symlink_path)
+            yield (file_name, abs_file_path, symlink_path)
 
 _project = None
 
 def get_project():
     global _project
     if _project is None:
-        _project = _Project()
+        _project = Project()
     return _project
 
 def init():
