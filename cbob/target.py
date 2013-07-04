@@ -114,7 +114,7 @@ class Target(object):
         elif removed_files_count == 1:
             logging.info("File '{}' has been removed from target '{}'.".format(removed_file_names[0], self.name))
         else:
-            logging.info("Files removed from target '{}':\n  {}".format(self.name, "\n  ".join(added_file_names)))
+            logging.info("Files removed from target '{}':\n  {}".format(self.name, "\n  ".join(removed_file_names)))
         self._sources = None
 
 
@@ -143,10 +143,10 @@ class Target(object):
         self._dependencies = None
 
     def build(self, jobs):
-        for dep in self.dependencies:
-            logging.info("Building dependency '{}'.".format(dep))
-            dep.build(jobs)
-            logging.info("Done building dependency '{}'".format(dep))
+        for dep_name, dep_target in self.dependencies.items():
+            logging.info("Building dependency '{}'.".format(dep_name))
+            dep_target.build(jobs)
+            logging.info("Done building dependency '{}'".format(dep_name))
         self._build_self(jobs)
 
     def _build_self(self, jobs):
@@ -156,6 +156,10 @@ class Target(object):
         if not sources:
             logging.info("No sources - nothing to do.")
             return
+        
+        if self.compiler is None or self.linker is None or self.bin_dir is None:
+            from cbob.error import NotConfiguredError
+            raise NotConfiguredError(self.name)
 
         import multiprocessing
         from cbob.node import SourceNode, HeaderNode
@@ -246,8 +250,7 @@ class Target(object):
                 logging.info("precompiling headers ...")
                 compile_func = partial(
                         _compile,
-                        compiler_path=self.compiler,
-                        target_name=self.name)
+                        compiler_path=self.compiler)
                 for result in pool.imap_unordered(compile_func, dirty_headers):
                     if result != 0:
                         exit(result)
@@ -258,7 +261,6 @@ class Target(object):
             compile_func = partial(
                     _compile,
                     compiler_path=self.compiler,
-                    target_name=self.name,
                     c_switch=True,
                     include_pch=True)
             for result in pool.imap_unordered(compile_func, dirty_sources):
@@ -273,7 +275,7 @@ class Target(object):
             bin_path = join(self.bin_dir, self.name)
             cmd = [self.linker, "-o", bin_path] + object_file_names
             logging.info("linking ...")
-            logging.info(" ", bin_path)
+            logging.info("  "+bin_path)
             return_code = subprocess.call(cmd)
             if return_code != 0:
                 from cbob.error import CbobError
@@ -349,6 +351,30 @@ class Target(object):
                      "linker: '{}', "
                      "binary output directory: '{}'".format(self.compiler, self.linker, self.bin_dir))
 
+    def _clean_dir(self, dirname):
+        dir_path = join(self.path, dirname)
+        for file_name in os.listdir(dir_path):
+            file_path = join(dir_path, file_name)
+            os.remove(file_path)
+            logging.debug("removed object file '{}'".format(file_name))
+
+
+    def clean(self, all_, object_files, pch_files, bin_file):
+        if all_ or object_files:
+            self._clean_dir("objects")
+            logging.info("cleaned object files")
+        if all_ or pch_files:
+            self._clean_dir("precompiled_headers")
+            logging.info("cleaned precompiled header files")
+        if all_ or bin_file:
+            bin_path = join(self.bin_dir, self.name)
+            try:
+                os.remove(bin_path)
+                logging.debug("removed binary file '{}'".format(bin_path))
+            except OSError:
+                logging.debug("no binary file to remove")
+            logging.info("cleaned binary file")
+
 
 def _get_dep_info(file_path, gcc_path):
     # The options used:
@@ -372,11 +398,11 @@ def _get_dep_info(file_path, gcc_path):
     deps = [(len(dots), os.path.normpath(rest)) for (dots, sep, rest) in raw_deps]
     return file_path, deps
 
-def _compile(source, compiler_path, target_name, c_switch=False, include_pch=False):
+def _compile(source, compiler_path, c_switch=False, include_pch=False):
     # This function is later used as a partial (curried) function, with the `file_path` parameter being mapped
     # to a list of files to compile.
     source_path, output_path, h_path = source
-    print(" ", source_path)
+    logging.info("  " + source_path)
     cmd = [compiler_path, source_path, "-o", output_path]
     if c_switch:
         cmd.append("-c")

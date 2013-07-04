@@ -6,7 +6,7 @@ def _init(args):
     cbob.project.init()
 
 def _new(args):
-    import cbob.target
+    import cbob.project
     *subproject_names, target_name = args.name.split(".")
     current_project = cbob.project.get_project(subproject_names)
     current_project.new_target(target_name)
@@ -48,6 +48,11 @@ def _configure(args):
 def _subadd(args):
     import cbob.project
     cbob.project.get_project().add_subprojects(args.projects)
+
+def _clean(args):
+    import cbob.target
+    current_target = cbob.target.get_target(args.target)
+    current_target.clean(args.all_, args.objects, args.precompiled, args.bin_)
 
 def main():
     parser = argparse.ArgumentParser(description="cbob builds your project.", prog="cbob")
@@ -101,6 +106,14 @@ def main():
     parser_depend.add_argument("target", help="The target that requires the dependencies.")
     parser_depend.add_argument("dependencies", metavar="dependency", nargs="+", help="The target(s) that are depended on.")
     parser_depend.set_defaults(func=_depend)
+
+    parser_clean = subparsers.add_parser("clean", help="Clean out various parts.")
+    parser_clean.add_argument("target", help="The target that requires the dependencies.")
+    parser_clean.add_argument("-a", "--all", dest="all_", action="store_true", help="Clean everything.")
+    parser_clean.add_argument("-o", "--objects", action="store_true", help="Clean object files.")
+    parser_clean.add_argument("-p", "--precompiled", action="store_true", help="Clean precompiled header files.")
+    parser_clean.add_argument("-b", "--bin", dest="bin_", action="store_true", help="Clean binary files.")
+    parser_clean.set_defaults(func=_clean)
 
     parser_configure = subparsers.add_parser("configure", help="Set parameter(s) for a target.")
     parser_configure.add_argument("target", help="The target to configure.")

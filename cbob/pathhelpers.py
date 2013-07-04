@@ -1,3 +1,4 @@
+import logging
 import os
 from os.path import normpath, join, dirname, relpath
 
@@ -12,7 +13,7 @@ def mangle_path(project_root, path):
 def expand_glob(raw_globs):
     import glob
     for raw_glob in raw_globs:
-        expanded_glob = glob.iglob(os.path.expanduser(raw_glob))
+        expanded_glob = glob.glob(os.path.expanduser(raw_glob))
         if not expanded_glob:
             logging.warning("No match for '{}'.".format(raw_glob))
             continue

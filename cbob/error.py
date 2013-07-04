@@ -15,3 +15,7 @@ class TargetDoesntExistError(CbobError):
 class SubprojectDoesntExistError(CbobError):
     def __init__(self, subproject_name):
         super().__init__("subproject '{}' doesn't exist.\nType 'cbob info --subprojects' to show existing targets.".format(subproject_name))
+
+class NotConfiguredError(CbobError):
+    def __init__(self, target_name):
+        super().__init__("target '{0}' is not configured.\nType 'cbob configure {0}' to configure target.".format(target_name))
