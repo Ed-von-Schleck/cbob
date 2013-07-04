@@ -33,7 +33,7 @@ def _show(args):
 def _build(args):
     import cbob.target
     current_target = cbob.target.get_target(args.target)
-    current_target.build(args.jobs)
+    current_target.build(args.jobs, args.oneshot)
 
 def _depend(args):
     import cbob.target
@@ -96,6 +96,7 @@ def main():
     parser_build = subparsers.add_parser("build", help="Build one, many or all targets.")
     parser_build.add_argument("target", help="The target to build.")
     parser_build.add_argument("-j", "--jobs", nargs=1, type=int, help="The target to build.")
+    parser_build.add_argument("-o", "--oneshot", action="store_true", help="Build all sources, no matter what (shortcuts dependency resolution).")
     parser_build.set_defaults(func=_build)
 
     parser_subadd = subparsers.add_parser("subadd", help="Add projects as subprojects.")

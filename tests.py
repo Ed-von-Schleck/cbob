@@ -142,8 +142,8 @@ class TestCbobCLI(unittest.TestCase):
         self.assertEqual(self._call_cmd("clean", "hello", "-a"), 0)
         self.assertFalse(isfile(join(self.bin_dir, "hello")))
 
-    def test_g7_build_once_again(self):
-        self.assertEqual(self._call_cmd("build", "hello"), 0)
+    def test_g7_build_oneshot(self):
+        self.assertEqual(self._call_cmd("build", "hello", "--oneshot"), 0)
 
     def test_g8_run_binary_again(self):
         cmd = (join(self.bin_dir, "hello"))

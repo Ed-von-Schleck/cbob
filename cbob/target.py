@@ -152,14 +152,14 @@ class Target(object):
             make_rel_symlink(dep_path, dep_symlink)
         self._dependencies = None
 
-    def build(self, jobs):
+    def build(self, jobs, oneshot):
         for dep_name, dep_target in self.dependencies.items():
             logging.info("Building dependency '{}'.".format(dep_name))
-            dep_target.build(jobs)
+            dep_target.build(jobs, oneshot)
             logging.info("Done building dependency '{}'".format(dep_name))
-        self._build_self(jobs)
+        self._build_self(jobs, oneshot)
 
-    def _build_self(self, jobs):
+    def _build_self(self, jobs, oneshot):
         # Bail out if there are no sources -
         # there is no need for a virtual target to be fully configured.
         sources = self.sources
@@ -181,7 +181,7 @@ class Target(object):
             jobs = jobs[0]
 
         pool = multiprocessing.Pool(jobs)
-
+        
         logging.info("calculating dependencies ...")
         # One might argue that a 'Graph' class should exists and a corresponding 'graph' object shoudl be
         # instanciated here. Tried it; it's somewhat painful to make it reasonably self-contained (needs
@@ -196,7 +196,7 @@ class Target(object):
         # if it was in another node's dependencies - but note how, when we process a node, we don't add an edge to that
         # very node, but to the node one layer *down* in the stack. Think about it for a while, then it makes sense.
         gcc_path = self.project.gcc_path
-        processed_nodes = set()
+        processed_nodes = set() if not oneshot else None
 
         get_dep_info = partial(_get_dep_info, gcc_path=self.project.gcc_path)
         for file_path, deps in pool.imap_unordered(get_dep_info, sources):
@@ -207,6 +207,8 @@ class Target(object):
 
             for current_depth, dep_path in deps:
                 includes.append("#include \"" + dep_path + "\"\n")
+                if oneshot:
+                    continue
                 if dep_path in header_node_index:
                     current_node = header_node_index[dep_path]
                     if current_node in processed_nodes:
@@ -219,39 +221,53 @@ class Target(object):
                 parent_nodes_stack[:] = parent_nodes_stack[:current_depth]
                 parent_nodes_stack[-1].dependencies.add(current_node)
                 parent_nodes_stack.append(current_node)
-            processed_nodes |= node.dependencies
+            if not oneshot:
+                processed_nodes |= node.dependencies
 
             # For every source file, we generate a corresponding `.h` file that consists of all the
             # `#include`s of that source file. This is the `node.h_path`. It is saved in one
             # of *cbob*s mysterious directories. After we processed a source file, we check if it is
             # up to date by doing a line-by-line comparison with a newly created `#include` list.
-            changed = False
-            try:
-                with open(node.h_path, "r") as uncompiled_header:
-                    for newline, oldline in zip_longest(includes, uncompiled_header):
-                        if newline != oldline:
-                            changed = True
-                            break
-            except IOError:
-                changed = True
+            if not oneshot:
+                overwrite_header = False
+                try:
+                    with open(node.h_path, "r") as uncompiled_header:
+                        for newline, oldline in zip_longest(includes, uncompiled_header):
+                            if newline != oldline:
+                                overwrite_header = True
+                                break
+                except IOError:
+                    overwrite_header = True
+            else:
+                overwrite_header = True
 
             # It the uncompiled header file changed, we save it and delete any existing precompiled header.
-            if changed:
+            if overwrite_header:
                 with open(node.h_path, "w") as uncompiled_header:
                     uncompiled_header.writelines(includes)
-                    
                 try:
                     os.remove(node.gch_path)
                 except OSError:
                     # It's OK if it didn't work; it just means that it wasn't there in the first place
                     pass
+
         logging.info("done.")
 
         logging.info("determining files for recompilation ...")
         dirty_sources = []
         dirty_headers = []
-        for source_node in source_node_index.values():
-            source_node.mark_dirty(dirty_sources, dirty_headers)
+
+        # Walk the dependency tree to find dirty sources and '.h'-files,
+        # unless the oneshot option is given, in which case all sources and corresping '.h'-files
+        # are marked for recompilation.
+        if not oneshot:
+            for source_node in source_node_index.values():
+                source_node.mark_dirty(dirty_sources, dirty_headers)
+        else:
+            for source_path, source_node in source_node_index.items():
+                dirty_sources.append((source_path, source_node.object_path, source_node.h_path))
+                dirty_headers.append((source_node.h_path, source_node.gch_path, None))
+
         logging.info("done.")
 
         if dirty_sources:
@@ -285,7 +301,7 @@ class Target(object):
             bin_path = join(self.bin_dir, self.name)
             cmd = [self.linker, "-o", bin_path] + object_file_names
             logging.info("linking ...")
-            logging.info("  "+bin_path)
+            logging.info("  " + bin_path)
             return_code = subprocess.call(cmd)
             if return_code != 0:
                 from cbob.error import CbobError
