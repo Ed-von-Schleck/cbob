@@ -94,31 +94,49 @@ class Project(object):
             yield (file_name, abs_file_path, symlink_path)
 
     def add_subprojects(self, raw_subproject_paths):
-        root_path = self.root_path
+        subprojects_path = join(self.root_path, ".cbob", "subprojects")
         added_subproject_names = []
         for subproject_list in expand_glob(raw_subproject_paths):
-            for dir_name, abs_dir_path, symlink_path in self.iter_file_list(subproject_list, root_path):
+            for dir_name, abs_dir_path, symlink_path in self.iter_file_list(subproject_list, subprojects_path):
                 if dir_name in self.subprojects:
                     logging.debug("Project '{}' is already a subproject.".format(dir_name))
                     continue
                 added_subproject_names.append(dir_name)
+                print(abs_dir_path, symlink_path)
                 make_rel_symlink(abs_dir_path, symlink_path)
         added_subprojects_count = len(added_subproject_names)
         if added_subprojects_count == 0:
             logging.warning("No subprojects have been added.")
         elif added_subprojects_count == 1:
-            logging.info("Project '{}' has been added as a subproject.".format(added_file_names[0]))
+            logging.info("Project '{}' has been added as a subproject.".format(added_subproject_names[0]))
         else:
-            logging.info("Projects added as subprojects '{}':\n  {}".format(self.name, "\n  ".join(added_file_names)))
+            logging.info("Projects added as subprojects '{}':\n  {}".format(self.name, "\n  ".join(added_subproject_names)))
         self._subprojects = None
+
+    def get_target(self, target_name):
+        try:
+            return self.targets[target_name]
+        except KeyError:
+            from cbob.error import TargetDoesntExistError
+            raise TargetDoesntExistError(target_name)
 
 _project = None
 
-def get_project():
+def get_project(subproject_names=None):
     global _project
     if _project is None:
         _project = Project()
-    return _project
+    current_project = _project
+    if subproject_names is not None:
+        try:
+           while subproject_names:
+               subproject_name = subproject_names.pop(0)
+               current_project = current_project.subprojects[subproject_name]
+        except KeyError:
+            from cbob.error import SubprojectDoesntExistError
+            raise SubprojectDoesntExistError(subproject_name)
+
+    return current_project
 
 def init():
     cbob_path = abspath(".cbob") + os.sep

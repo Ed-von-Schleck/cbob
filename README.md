@@ -68,6 +68,7 @@ Apart from the obvious, there's
 * Automatic header dependency tracking: You don't need to declare your `include`s somewhere, *cbob* gets it right. DRY, you know.
 * Precompiled headers: By default, *cbob* precompiles your headers (and uses them) transparently.
 * Target dependencies: You can make a target dependend on other targets. When building a target, *cbob* first makes sure its dependencies are up to date. For example, you can make a *virtual* `all` target that depends on all other targets (which can have dependencies as well).
+* Sub-projects: Let *cbob* handle projects in subdirectories (think of git submodules, and stuff like pre-checks as *cbob*-projects, hosted on github, as easily re-usable recipies).
 
 Planned Features
 ----------------
@@ -76,7 +77,6 @@ Planned Features
 * Options: Make it easy to define `--enable-foo` style configuration options.
 * Libtool support: Use libtool to make building libraries easier.
 * Plugins: Add features (or change how *cbob* works) by hooking custom Python code into *cbob*.
-* Sub-projects: Let *cbob* handle projects in subdirectories (think of git submodules, and stuff like pre-checks as *cbob*-projects, hosted on github, as easily re-usable recipies).
 
 Maybe-Features
 --------------

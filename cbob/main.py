@@ -1,69 +1,53 @@
-import logging
 import argparse
-
-from cbob.error import CbobError
+import logging
 
 def _init(args):
-    import cbob.project as project
-    project.init()
+    import cbob.project
+    cbob.project.init()
 
 def _new(args):
-    import cbob.project as project
-    project.get_project().new_target(args.name)
+    import cbob.target
+    *subproject_names, target_name = args.name.split(".")
+    current_project = cbob.project.get_project(subproject_names)
+    current_project.new_target(target_name)
 
 def _add(args):
-    import cbob.project as project
-    target = project.get_project().targets[args.target]
-    target.add_sources(args.files)
+    import cbob.target
+    current_target = cbob.target.get_target(args.target)
+    current_target.add_sources(args.files)
 
 def _remove(args):
-    import cbob.project as project
-    target = project.get_project().targets[args.target]
-    target.remove_sources(args.files)
+    import cbob.target
+    current_target = cbob.target.get_target(args.target)
+    current_target.remove_sources(args.files)
 
 def _info(args):
-    import cbob.project as project
-    project.get_project().info(args.all_, args.targets, args.subprojects)
+    import cbob.project
+    cbob.project.get_project().info(args.all_, args.targets, args.subprojects)
 
 def _show(args):
-    import cbob.project as project
-    try:
-        target = project.get_project().targets[args.target]
-    except KeyError:
-        from cbob.error import TargetDoesntExistError
-        raise TargetDoesntExistError(args.target)
-    target.show(args.all_, args.sources, args.dependencies)
+    import cbob.target
+    current_target = cbob.target.get_target(args.target)
+    current_target.show(args.all_, args.sources, args.dependencies)
 
 def _build(args):
-    import cbob.project as project
-    try:
-        target = project.get_project().targets[args.target]
-    except KeyError:
-        from cbob.error import TargetDoesntExistError
-        raise TargetDoesntExistError(args.target)
-    target.build(args.jobs)
+    import cbob.target
+    current_target = cbob.target.get_target(args.target)
+    current_target.build(args.jobs)
 
 def _depend(args):
-    import cbob.project as project
-    try:
-        target = project.get_project().targets[args.target]
-    except KeyError:
-        from cbob.error import TargetDoesntExistError
-        raise TargetDoesntExistError(args.target)
-    target.depend_on(args.dependencies)
+    import cbob.target
+    current_target = cbob.target.get_target(args.target)
+    current_target.depend_on(args.dependencies)
 
 def _configure(args):
-    import cbob.project as project
-    try:
-        target = project.get_project().targets[args.target]
-    except KeyError:
-        from cbob.error import TargetDoesntExistError
-        raise TargetDoesntExistError(args.target)
-    target.configure(args.auto, args.force, args.compiler, args.linker, args.bindir)
+    import cbob.target
+    current_target = cbob.target.get_target(args.target)
+    current_target.configure(args.auto, args.force, args.compiler, args.linker, args.bindir)
 
 def _subadd(args):
-    import cbob.project as project
-    project.get_project().add_subprojects(args.projects)
+    import cbob.project
+    cbob.project.get_project().add_subprojects(args.projects)
 
 def main():
     parser = argparse.ArgumentParser(description="cbob builds your project.", prog="cbob")
@@ -109,8 +93,8 @@ def main():
     parser_build.add_argument("-j", "--jobs", nargs=1, type=int, help="The target to build.")
     parser_build.set_defaults(func=_build)
 
-    parser_subadd = subparsers.add_parser("subadd", help="Make a target depend on other targets.")
-    parser_subadd.add_argument("projects", metavar="project", nargs="+", help="A cbob project to be used as a sub-project.")
+    parser_subadd = subparsers.add_parser("subadd", help="Add projects as subprojects.")
+    parser_subadd.add_argument("projects", metavar="project", nargs="+", help="Project(s) to be used as a sub-project.")
     parser_subadd.set_defaults(func=_subadd)
 
     parser_depend = subparsers.add_parser("depend", help="Make a target depend on other targets.")
@@ -131,8 +115,10 @@ def main():
     parser_configure.set_defaults(func=_configure)
 
     args = parser.parse_args()
-    #logging.basicConfig(format="%(levelname)s: %(message)s", level=args.verbosity)
+
+    from cbob.error import CbobError
     logging.basicConfig(format="%(message)s", level=args.verbosity)
+
     try:
         args.func(args)
     except CbobError as e:

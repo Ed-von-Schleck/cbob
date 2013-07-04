@@ -10,5 +10,8 @@ class NotInitializedError(CbobError):
 
 class TargetDoesntExistError(CbobError):
     def __init__(self, target_name):
-        super().__init__("target '{}' doesn't exist.\nType 'cbob list' to show existing targets.".format(target_name))
+        super().__init__("target '{}' doesn't exist.\nType 'cbob info --targets' to show existing targets.".format(target_name))
 
+class SubprojectDoesntExistError(CbobError):
+    def __init__(self, subproject_name):
+        super().__init__("subproject '{}' doesn't exist.\nType 'cbob info --subprojects' to show existing targets.".format(subproject_name))

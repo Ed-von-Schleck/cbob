@@ -2,7 +2,7 @@ from functools import partial
 import logging
 from itertools import zip_longest
 import os
-from os.path import basename, join, islink, normpath, abspath, isdir, relpath
+from os.path import basename, join, islink, normpath, abspath, isdir, relpath, commonprefix
 import subprocess
 
 from cbob.pathhelpers import read_symlink, mangle_path, expand_glob, make_rel_symlink, print_information
@@ -79,6 +79,10 @@ class Target(object):
                     continue
                 if islink(symlink_path):
                     logging.debug("File '{}' is already a source file of target '{}'.".format(file_name, self.name))
+                    continue
+                root_path = self.project.root_path
+                if commonprefix((abs_file_path, root_path)) != root_path:
+                    logging.warning("File '{}' is not in a (sub)-direcory of the project.".format(file_name))
                     continue
                 added_file_names.append(file_name)
                 make_rel_symlink(abs_file_path, symlink_path)
@@ -170,10 +174,7 @@ class Target(object):
         # to know about configuration when reading header output from the gcc, which it needs to
         # know about, ...).
 
-        # We have two indexes: The `source_node_index` points, well, to the source nodes, while the `node_index` points to
-        # all nodes. Later we use the nodes in the `source_node_index` as root nodes for starting the search for dirty nodes.
         source_node_index = {file_path: SourceNode(file_path, self) for file_path in sources}
-        #node_index = source_node_index.copy()
         header_node_index = {}
 
         # This is somewhat straight-forward if you have ever written a stream-parser (like SAX), though it adds a twist
@@ -384,3 +385,9 @@ def _compile(source, compiler_path, target_name, c_switch=False, include_pch=Fal
 
     process = subprocess.Popen(cmd)
     return process.wait()
+
+def get_target(raw_target_name):
+    import cbob.project as project
+    *subproject_names, target_name = raw_target_name.split(".")
+    current_project = project.get_project(subproject_names)
+    return current_project.get_target(target_name)
