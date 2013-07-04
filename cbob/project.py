@@ -101,8 +101,10 @@ class Project(object):
                 if dir_name in self.subprojects:
                     logging.debug("Project '{}' is already a subproject.".format(dir_name))
                     continue
+                if not isdir(join(abs_dir_path, ".cbob")):
+                    logging.warning("Project '{}' is not really a project (not initialized).".format(dir_name))
+                    continue
                 added_subproject_names.append(dir_name)
-                print(abs_dir_path, symlink_path)
                 make_rel_symlink(abs_dir_path, symlink_path)
         added_subprojects_count = len(added_subproject_names)
         if added_subprojects_count == 0:

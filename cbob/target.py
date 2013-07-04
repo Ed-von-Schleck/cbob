@@ -32,8 +32,14 @@ class Target(object):
     @property
     def dependencies(self):
         if self._dependencies is None:
+            import cbob.project
             dependencies_dir = join(self.path, "dependencies")
-            self._dependencies = {name: Target(read_symlink(name, dependencies_dir), self.project) for name in os.listdir(dependencies_dir)}
+            raw_dep_names = os.listdir(dependencies_dir)
+            self._dependencies = {}
+            for raw_dep_name in raw_dep_names:
+                *subproject_names, dep_name = raw_dep_name.split(".")
+                _project = cbob.project.get_project(subproject_names)
+                self._dependencies[raw_dep_name] = _project.targets[dep_name]
         return self._dependencies
 
     @property
@@ -128,14 +134,18 @@ class Target(object):
             print_information("Dependencies", self.dependencies)
 
     def depend_on(self, dependencies):
-        targets_dir = join(self.project.root_path, ".cbob", "targets")
+        import cbob.project
         dependencies_dir = join(self.path, "dependencies")
-        for dep in dependencies:
-            if dep in self.dependencies:
-                logging.warning("Target '{}' is already a dependency of target '{}'.".format(dep, self.name))
+        for raw_dep in dependencies:
+            if raw_dep in self.dependencies:
+                logging.warning("Target '{}' is already a dependency of target '{}'.".format(raw_dep, self.name))
                 continue
-            dep_path = join(targets_dir, dep)
-            dep_symlink = join(dependencies_dir, dep)
+            *subprojects, dep_name = raw_dep.split(".")
+            dep_project = cbob.project.get_project(subprojects)
+            targets_dir = join(dep_project.root_path, ".cbob", "targets")
+
+            dep_path = join(targets_dir, dep_name)
+            dep_symlink = join(dependencies_dir, raw_dep)
             if not isdir(dep_path):
                 from cbob.error import TargetDoesntExistError
                 raise TargetDoesntExistError(dep)
@@ -294,8 +304,6 @@ class Target(object):
                 return "C++"
         return None
 
-
-
     def configure(self, auto, force, compiler, linker, bin_dir):
         if compiler is not None:
             os.symlink(compiler, join(self.path, "compiler"))
@@ -413,7 +421,7 @@ def _compile(source, compiler_path, c_switch=False, include_pch=False):
     return process.wait()
 
 def get_target(raw_target_name):
-    import cbob.project as project
+    import cbob.project
     *subproject_names, target_name = raw_target_name.split(".")
-    current_project = project.get_project(subproject_names)
+    current_project = cbob.project.get_project(subproject_names)
     return current_project.get_target(target_name)

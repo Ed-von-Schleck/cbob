@@ -43,18 +43,23 @@ class TestCbobCLI(unittest.TestCase):
         cls.project_path = cls.project_dir.name
         cls.src_dir = join(cls.project_path, "src")
         cls.bin_dir = join(cls.project_path, "bin")
-        cls.sub_dir = join(cls.project_path, "sub")
+        cls.sub_dir = join(cls.project_path, "subtest")
+        cls.src_files = {join(cls.src_dir, name) for name in ("hello.c", "main.c")}
+        cls.sub_files = {join(cls.sub_dir, name) for name in ("submain.c", )}
         cbob_path = abspath("cbob.py") 
         assert(isfile(cbob_path))
         cls.cbob_cmd = ["python3", cbob_path]
         os.makedirs(cls.src_dir)
         os.makedirs(cls.bin_dir)
+        os.makedirs(cls.sub_dir)
         with open(join(cls.src_dir, "main.c"), "w") as main_c_file:
             main_c_file.write(MAIN_C)
         with open(join(cls.src_dir, "hello.c"), "w") as hello_c_file:
             hello_c_file.write(HELLO_C)
         with open(join(cls.src_dir, "hello.h"), "w") as hello_h_file:
             hello_h_file.write(HELLO_H)
+        with open(join(cls.sub_dir, "submain.c"), "w") as submain_c_file:
+            submain_c_file.write(SUBMAIN_C)
         os.chdir(cls.project_path)
 
     def _call_cmd(self, *args, silent=False):
@@ -91,24 +96,18 @@ class TestCbobCLI(unittest.TestCase):
         self.assertNotEqual(self._call_cmd("nonexisting_command", silent=True), 0)
 
     def test_d1_add(self):
-        file_names = (join(self.src_dir, name) for name in ("hello.c", "main.c"))
-        self.assertEqual(self._call_cmd("add", "hello", *file_names), 0)
+        self.assertEqual(self._call_cmd("add", "hello", *self.src_files), 0)
 
     def test_d2_show(self):
-        file_names = (join(self.src_dir, name) for name in ("hello.c", "main.c"))
-        abs_file_paths = {abspath(file_name) for file_name in file_names}
         out_set = self._get_lines_cmd("show", "hello")
-        self.assertTrue(abs_file_paths < out_set)
+        self.assertTrue(self.src_files < out_set)
 
     def test_d3_remove(self):
-        file_names = (join(self.src_dir, name) for name in ("hello.c", "main.c"))
-        self.assertEqual(self._call_cmd("remove", "hello", *file_names), 0)
+        self.assertEqual(self._call_cmd("remove", "hello", *self.src_files), 0)
 
     def test_d4_show_not(self):
-        file_names = (join(self.src_dir, name) for name in ("hello.c", "main.c"))
-        abs_file_paths = {abspath(file_name) for file_name in file_names}
         out_set = self._get_lines_cmd("show", "hello")
-        self.assertFalse(abs_file_paths < out_set)
+        self.assertFalse(self.src_files < out_set)
 
     def test_e1_add_wildcard(self):
         file_wildcard = join("src", "*.c")
@@ -118,8 +117,7 @@ class TestCbobCLI(unittest.TestCase):
         self.test_d2_show()
 
     def test_f_add_nonexisting_target(self):
-        files = (join(self.src_dir, name) for name in ("hello.c", "main.c"))
-        self.assertNotEqual(self._call_cmd("add", "nonexisting_target", *files, silent=True), 0)
+        self.assertNotEqual(self._call_cmd("add", "nonexisting_target", *self.src_files, silent=True), 0)
 
     def test_g1_build(self):
         # it's not configured yet
@@ -140,7 +138,9 @@ class TestCbobCLI(unittest.TestCase):
         self.assertEqual(out, "Hello, World")
 
     def test_g6_clean(self):
+        self.assertTrue(isfile(join(self.bin_dir, "hello")))
         self.assertEqual(self._call_cmd("clean", "hello", "-a"), 0)
+        self.assertFalse(isfile(join(self.bin_dir, "hello")))
 
     def test_g7_build_once_again(self):
         self.assertEqual(self._call_cmd("build", "hello"), 0)
@@ -156,12 +156,87 @@ class TestCbobCLI(unittest.TestCase):
     def test_h2_depend_child(self):
         self.assertEqual(self._call_cmd("depend", "all", "hello"), 0)
 
-    def test_h3_show_depend(self):
+    def test_h3_depend_nonexisting_child(self):
+        self.assertNotEqual(self._call_cmd("depend", "all", "good-bye", silent=True), 0)
+
+    def test_h4_show_depend(self):
         out_set = self._get_lines_cmd("show", "all", "--dependencies")
         self.assertTrue(set(("hello",)) < out_set)
 
-    def test_h4_build(self):
+    def test_h5_build(self):
         self.assertEqual(self._call_cmd("build", "all"), 0)
+
+    def test_i1_subadd(self):
+        # subproject is not initialized
+        # cbob will not fail, but it won't add it either
+        self.assertEqual(self._call_cmd("subadd", "subtest", silent=True), 0)
+
+    def test_i2_show_subproject_not(self):
+        out_set = self._get_lines_cmd("info", "--subprojects")
+        self.assertFalse(set(("subtest",)) < out_set)
+
+    def test_i3_sub_init(self):
+        os.chdir(self.sub_dir)
+        self.assertEqual(self._call_cmd("init"), 0)
+        os.chdir(self.project_path)
+
+    def test_i4_subadd_for_real(self):
+        self.assertEqual(self._call_cmd("subadd", "subtest", silent=True), 0)
+
+    def test_i5_show_subproject(self):
+        out_set = self._get_lines_cmd("info", "--subprojects")
+        self.assertTrue(set(("subtest",)) < out_set)
+
+    def test_i6_sub_init(self):
+        os.chdir(self.sub_dir)
+        self.assertNotEqual(self._call_cmd("init", silent=True), 0)
+        os.chdir(self.project_path)
+
+    def test_i7_sub_new(self):
+        self.assertEqual(self._call_cmd("new", "subtest.subhello"), 0)
+
+    def test_i8_sub_new_again(self):
+        self.assertNotEqual(self._call_cmd("new", "subtest.subhello", silent=True), 0)
+
+    def test_j1_sub_add(self):
+        sub_file_path = join(self.sub_dir, "submain.c")
+        self.assertEqual(self._call_cmd("add", "subtest.subhello", sub_file_path), 0)
+
+    def test_j2_sub_add_wrong(self):
+        wrong_file_names = (join(self.src_dir, name) for name in ("hello.c", "main.c"))
+        self.assertEqual(self._call_cmd("add", "subtest.subhello", *wrong_file_names, silent=True), 0)
+
+    def test_j3_sub_show(self):
+        out_set = self._get_lines_cmd("show", "subtest.subhello")
+        self.assertTrue(self.sub_files < out_set)
+        self.assertFalse(self.src_files < out_set)
+
+    def test_k1_sub_configure_auto(self):
+        self.assertEqual(self._call_cmd("configure", "subtest.subhello", "--auto"), 0)
+
+    def test_k2_sub_build(self):
+        self.assertEqual(self._call_cmd("build", "subtest.subhello"), 0)
+
+    def test_k3_sub_run_binary(self):
+        cmd = (join(self.sub_dir, "subhello"))
+        out = subprocess.check_output(cmd, universal_newlines=True).strip()
+        self.assertEqual(out, "Hello, Subworld")
+
+    def test_k4_sub_clean(self):
+        self.assertTrue(isfile(join(self.sub_dir, "subhello")))
+        self.assertEqual(self._call_cmd("clean", "subtest.subhello", "-a"), 0)
+        self.assertFalse(isfile(join(self.sub_dir, "subhello")))
+
+    def test_l1_sub_depend(self):
+        self.assertEqual(self._call_cmd("depend", "all", "subtest.subhello"), 0)
+
+    def test_l2_build(self):
+        self.assertEqual(self._call_cmd("build", "all"), 0)
+
+    def test_l3_sub_run_binary_again(self):
+        cmd = (join(self.sub_dir, "subhello"))
+        out = subprocess.check_output(cmd, universal_newlines=True).strip()
+        self.assertEqual(out, "Hello, Subworld")
 
 
     @classmethod
