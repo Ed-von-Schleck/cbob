@@ -3,7 +3,7 @@ import os
 from os.path import normpath, join, isdir, dirname, basename, abspath
 
 from cbob.target import Target
-from cbob.pathhelpers import read_symlink, expand_glob, make_rel_symlink
+from cbob.pathhelpers import read_symlink, expand_glob, make_rel_symlink, print_information
 
 class Project(object):
 
@@ -39,7 +39,7 @@ class Project(object):
     def subprojects(self):
         if self._subprojects is None:
             subprojects_dir = join(self.root_path, ".cbob", "subprojects")
-            self.subprojects = {name: Project(read_symlink(name, subprojects_dir)) for name in os.listdir(subprojects_dir)}
+            self._subprojects = {name: Project(read_symlink(name, subprojects_dir)) for name in os.listdir(subprojects_dir)}
         return self._subprojects
 
     @property
@@ -71,9 +71,14 @@ class Project(object):
         self._targets = None
         logging.info("Added new target '{}'".format(target_name))
 
-    def list_targets(self):
-        for target_name in self.targets:
-            print(target_name)
+    def info(self, all_, targets, subprojects):
+        if not targets and not subprojects:
+            all_ = True
+        if all_ or targets:
+            print_information("Targets", self.targets)
+            print()
+        if all_ or subprojects:
+            print_information("Subprojects", self.subprojects)
 
     def mangle_path(self, path):
         abs_actual_file_path = os.path.abspath(path)

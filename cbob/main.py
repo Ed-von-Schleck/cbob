@@ -21,9 +21,9 @@ def _remove(args):
     target = project.get_project().targets[args.target]
     target.remove_sources(args.files)
 
-def _list_(args):
+def _info(args):
     import cbob.project as project
-    project.get_project().list_targets()
+    project.get_project().info(args.all_, args.targets, args.subprojects)
 
 def _show(args):
     import cbob.project as project
@@ -32,7 +32,7 @@ def _show(args):
     except KeyError:
         from cbob.error import TargetDoesntExistError
         raise TargetDoesntExistError(args.target)
-    target.show_sources()
+    target.show(args.all_, args.sources, args.dependencies)
 
 def _build(args):
     import cbob.project as project
@@ -91,11 +91,17 @@ def main():
     parser_remove.add_argument("files", metavar="file", nargs="+", help="The file(s) to be removed (wildcards allowed).")
     parser_remove.set_defaults(func=_remove)
 
-    parser_list = subparsers.add_parser("list", help="List targets.")
-    parser_list.set_defaults(func=_list_)
+    parser_info = subparsers.add_parser("info", help="Show information about the project.")
+    parser_info.add_argument("-a", "--all", dest="all_", action="store_true", help="Show all available information.")
+    parser_info.add_argument("-t", "--targets", action="store_true", help="List the project's targets.")
+    parser_info.add_argument("-s", "--subprojects", action="store_true", help="List the project's subprojects.")
+    parser_info.set_defaults(func=_info)
 
     parser_show = subparsers.add_parser("show", help="Show information about a target.")
     parser_show.add_argument("target", help="The inquired target.")
+    parser_show.add_argument("-a", "--all", dest="all_", action="store_true", help="Show all available information about the target.")
+    parser_show.add_argument("-s", "--sources", action="store_true", help="List the target's sources.")
+    parser_show.add_argument("-d", "--dependencies", action="store_true", help="List the target's dependencies.")
     parser_show.set_defaults(func=_show)
 
     parser_build = subparsers.add_parser("build", help="Build one, many or all targets.")

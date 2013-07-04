@@ -5,7 +5,7 @@ import os
 from os.path import basename, join, islink, normpath, abspath, isdir, relpath
 import subprocess
 
-from cbob.pathhelpers import read_symlink, mangle_path, expand_glob, make_rel_symlink
+from cbob.pathhelpers import read_symlink, mangle_path, expand_glob, make_rel_symlink, print_information
 from cbob.definitions import SOURCE_FILE_EXTENSIONS
 
 class Target(object):
@@ -114,9 +114,14 @@ class Target(object):
         self._sources = None
 
 
-    def show_sources(self):
-        for file_name in self.sources:
-            print(file_name)
+    def show(self, all_, sources, dependencies):
+        if not sources and not dependencies:
+            all_ = True
+        if all_ or sources:
+            print_information("Sources", self.sources)
+            print()
+        if all_ or dependencies:
+            print_information("Dependencies", self.dependencies)
 
     def depend_on(self, dependencies):
         targets_dir = join(self.project.root_path, ".cbob", "targets")

@@ -22,3 +22,12 @@ def make_rel_symlink(abs_path, symlink_path):
     symlink_dir = dirname(symlink_path)
     rel_path = normpath(relpath(abs_path, symlink_dir))
     return os.symlink(rel_path, symlink_path)
+
+def print_information(name, some_list):
+    print(name + ":")
+    if some_list:
+        for element in some_list:
+            print(" ", element)
+    else:
+        print("  (none)")
+
