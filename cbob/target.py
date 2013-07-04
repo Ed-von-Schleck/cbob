@@ -72,7 +72,7 @@ class Target(object):
     def add_sources(self, source_globs):
         sources_dir = join(self.path, "sources")
         added_file_names = []
-        for source_glob, file_list in expand_glob(source_globs):
+        for file_list in expand_glob(source_globs):
             for file_name, abs_file_path, symlink_path in self.project.iter_file_list(file_list, sources_dir):
                 if not os.path.splitext(file_name)[1] in SOURCE_FILE_EXTENSIONS:
                     logging.warning("'{}' does not seem to be a C/C++ source file (ending is not one of {}).".format(file_name, ", ".join(SOURCE_FILE_EXTENSIONS)))
@@ -85,7 +85,7 @@ class Target(object):
 
         added_files_count = len(added_file_names)
         if added_files_count == 0:
-            logging.info("No files have been added to target '{}'.".format(self.name))
+            logging.warning("No files have been added to target '{}'.".format(self.name))
         elif added_files_count == 1:
             logging.info("File '{}' has been added to target '{}'.".format(added_file_names[0], self.name))
         else:
@@ -95,7 +95,7 @@ class Target(object):
     def remove_sources(self, source_globs):
         sources_dir = join(self.path, "sources")
         removed_file_names = []
-        for source_glob, file_list in expand_glob(source_globs):
+        for file_list in expand_glob(source_globs):
             for file_name, rel_file_path, symlink_path in self.project.iter_file_list(file_list, sources_dir):
                 try:
                     os.unlink(symlink_path)
@@ -106,7 +106,7 @@ class Target(object):
 
         removed_files_count = len(removed_file_names)
         if removed_files_count == 0:
-            logging.info("No files have been removed from to target '{}'.".format(self.name))
+            logging.warning("No files have been removed from to target '{}'.".format(self.name))
         elif removed_files_count == 1:
             logging.info("File '{}' has been removed from target '{}'.".format(removed_file_names[0], self.name))
         else:
@@ -159,7 +159,7 @@ class Target(object):
 
         pool = multiprocessing.Pool(jobs)
 
-        logging.info("calculating dependencies ...", end=" ")
+        logging.info("calculating dependencies ...")
         # One might argue that a 'Graph' class should exists and a corresponding 'graph' object shoudl be
         # instanciated here. Tried it; it's somewhat painful to make it reasonably self-contained (needs
         # to know about configuration when reading header output from the gcc, which it needs to
@@ -227,22 +227,22 @@ class Target(object):
                     pass
         logging.info("done.")
 
-        logging.info("determining files for recompilation ...", end=" ")
-        dirty_source_nodes = []
-        dirty_header_nodes = []
+        logging.info("determining files for recompilation ...")
+        dirty_sources = []
+        dirty_headers = []
         for source_node in source_node_index.values():
-            source_node.mark_dirty(dirty_source_nodes, dirty_header_nodes)
+            source_node.mark_dirty(dirty_sources, dirty_headers)
         logging.info("done.")
 
-        if dirty_source_nodes:
+        if dirty_sources:
             # precompile headers
-            if dirty_header_nodes:
+            if dirty_headers:
                 logging.info("precompiling headers ...")
                 compile_func = partial(
                         _compile,
                         compiler_path=self.compiler,
                         target_name=self.name)
-                for result in pool.imap_unordered(compile_func, dirty_header_nodes):
+                for result in pool.imap_unordered(compile_func, dirty_headers):
                     if result != 0:
                         exit(result)
                 logging.info("done.")
@@ -255,7 +255,7 @@ class Target(object):
                     target_name=self.name,
                     c_switch=True,
                     include_pch=True)
-            for result in pool.imap_unordered(compile_func, dirty_source_nodes):
+            for result in pool.imap_unordered(compile_func, dirty_sources):
                 if result != 0:
                     from cbob.error import CbobError
                     raise CbobError("compilation failed")

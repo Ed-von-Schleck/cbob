@@ -16,7 +16,7 @@ def expand_glob(raw_globs):
         if not expanded_glob:
             logging.warning("No match for '{}'.".format(raw_glob))
             continue
-        yield (raw_glob, expanded_glob)
+        yield expanded_glob
 
 def make_rel_symlink(abs_path, symlink_path):
     symlink_dir = dirname(symlink_path)

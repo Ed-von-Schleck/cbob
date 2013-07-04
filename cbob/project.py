@@ -3,7 +3,7 @@ import os
 from os.path import normpath, join, isdir, dirname, basename, abspath
 
 from cbob.target import Target
-from cbob.pathhelpers import read_symlink
+from cbob.pathhelpers import read_symlink, expand_glob, make_rel_symlink
 
 class Project(object):
 
@@ -87,6 +87,25 @@ class Project(object):
 
             abs_file_path = os.path.abspath(file_name)
             yield (file_name, abs_file_path, symlink_path)
+
+    def add_subprojects(self, raw_subproject_paths):
+        root_path = self.root_path
+        added_subproject_names = []
+        for subproject_list in expand_glob(raw_subproject_paths):
+            for dir_name, abs_dir_path, symlink_path in self.iter_file_list(subproject_list, root_path):
+                if dir_name in self.subprojects:
+                    logging.debug("Project '{}' is already a subproject.".format(dir_name))
+                    continue
+                added_subproject_names.append(dir_name)
+                make_rel_symlink(abs_dir_path, symlink_path)
+        added_subprojects_count = len(added_subproject_names)
+        if added_subprojects_count == 0:
+            logging.warning("No subprojects have been added.")
+        elif added_subprojects_count == 1:
+            logging.info("Project '{}' has been added as a subproject.".format(added_file_names[0]))
+        else:
+            logging.info("Projects added as subprojects '{}':\n  {}".format(self.name, "\n  ".join(added_file_names)))
+        self._subprojects = None
 
 _project = None
 

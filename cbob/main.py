@@ -2,26 +2,31 @@ import logging
 import argparse
 
 from cbob.error import CbobError
-import cbob.project as project
 
 def _init(args):
+    import cbob.project as project
     project.init()
 
 def _new(args):
+    import cbob.project as project
     project.get_project().new_target(args.name)
 
 def _add(args):
+    import cbob.project as project
     target = project.get_project().targets[args.target]
     target.add_sources(args.files)
 
 def _remove(args):
+    import cbob.project as project
     target = project.get_project().targets[args.target]
     target.remove_sources(args.files)
 
 def _list_(args):
+    import cbob.project as project
     project.get_project().list_targets()
 
 def _show(args):
+    import cbob.project as project
     try:
         target = project.get_project().targets[args.target]
     except KeyError:
@@ -30,6 +35,7 @@ def _show(args):
     target.show_sources()
 
 def _build(args):
+    import cbob.project as project
     try:
         target = project.get_project().targets[args.target]
     except KeyError:
@@ -38,6 +44,7 @@ def _build(args):
     target.build(args.jobs)
 
 def _depend(args):
+    import cbob.project as project
     try:
         target = project.get_project().targets[args.target]
     except KeyError:
@@ -46,6 +53,7 @@ def _depend(args):
     target.depend_on(args.dependencies)
 
 def _configure(args):
+    import cbob.project as project
     try:
         target = project.get_project().targets[args.target]
     except KeyError:
@@ -54,8 +62,8 @@ def _configure(args):
     target.configure(args.auto, args.force, args.compiler, args.linker, args.bindir)
 
 def _subadd(args):
-    import cbob.subadd
-    cbob.subadd.subadd(args.projects)
+    import cbob.project as project
+    project.get_project().add_subprojects(args.projects)
 
 def main():
     parser = argparse.ArgumentParser(description="cbob builds your project.", prog="cbob")
@@ -117,7 +125,8 @@ def main():
     parser_configure.set_defaults(func=_configure)
 
     args = parser.parse_args()
-    logging.basicConfig(format="%(levelname)s: %(message)s", level=args.verbosity)
+    #logging.basicConfig(format="%(levelname)s: %(message)s", level=args.verbosity)
+    logging.basicConfig(format="%(message)s", level=args.verbosity)
     try:
         args.func(args)
     except CbobError as e:
