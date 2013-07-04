@@ -96,9 +96,9 @@ Things that are out of scope (though you may try to convince me otherwise):
 Todo
 ----
 
-* Tests: Both unit-tests and automated project deployment tests, including fake large scale project. Not started yet.
+* Tests: Expand on what we have. There should be more tests.
 * Documentation: Yeah. And Tutorials. It's coming once most planned features are in place.
-* API: Expose and document an API for commands (but nothing low-level - there's gonna be plugins for that).
+* API: Expose and document an API for commands, kinda what I seem to remember *mercurial* offers (but nothing low-level - there's gonna be plugins for that).
 
 Feedback
 --------
