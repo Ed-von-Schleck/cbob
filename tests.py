@@ -75,6 +75,12 @@ class TestCbobCLI(unittest.TestCase):
         out = subprocess.check_output(cmd, universal_newlines=True)
         return {line.strip() for line in out.split("\n") if line}
 
+    def _get_err_lines_cmd(self, *args):
+        cmd = self.cbob_cmd + list(args)
+        with open(os.devnull, "w") as null:
+            with subprocess.Popen(cmd, stdout=null, stderr=subprocess.PIPE, universal_newlines=True) as process:
+                return process.communicate()[1]
+
 
     def test_a1_init(self):
         self.assertEqual(self._call_cmd("init"), 0)
@@ -96,16 +102,23 @@ class TestCbobCLI(unittest.TestCase):
         self.assertNotEqual(self._call_cmd("nonexisting_command", silent=True), 0)
 
     def test_d1_add(self):
-        self.assertEqual(self._call_cmd("add", "hello", *self.src_files), 0)
+        out_set = self._get_lines_cmd("add", "hello", *self.src_files)
+        # If all exists, cbob doesn't say anything
+        self.assertEqual(out_set, set())
 
     def test_d2_show(self):
         out_set = self._get_lines_cmd("show", "hello")
         self.assertTrue(self.src_files < out_set)
 
-    def test_d3_remove(self):
+    def test_d3_add_nonexisting_file(self):
+        err_set = self._get_err_lines_cmd("add", "hello", "i-dont-exists.c")
+        # it should complain that this file doesn't exist (otherwise stay silent)
+        self.assertNotEqual(err_set, set())
+
+    def test_d4_remove(self):
         self.assertEqual(self._call_cmd("remove", "hello", *self.src_files), 0)
 
-    def test_d4_show_not(self):
+    def test_d5_show_not(self):
         out_set = self._get_lines_cmd("show", "hello")
         self.assertFalse(self.src_files < out_set)
 
@@ -169,7 +182,9 @@ class TestCbobCLI(unittest.TestCase):
     def test_i1_subadd(self):
         # subproject is not initialized
         # cbob will not fail, but it won't add it either
-        self.assertEqual(self._call_cmd("subadd", "subtest", silent=True), 0)
+        # it will instead issue a warning
+        err_set = self._get_err_lines_cmd("subadd", "subtest")
+        self.assertNotEqual(err_set, set())
 
     def test_i2_show_subproject_not(self):
         out_set = self._get_lines_cmd("info", "--subprojects")
@@ -199,12 +214,11 @@ class TestCbobCLI(unittest.TestCase):
         self.assertNotEqual(self._call_cmd("new", "subtest.subhello", silent=True), 0)
 
     def test_j1_sub_add(self):
-        sub_file_path = join(self.sub_dir, "submain.c")
-        self.assertEqual(self._call_cmd("add", "subtest.subhello", sub_file_path), 0)
+        self.assertEqual(self._call_cmd("add", "subtest.subhello", *self.sub_files), 0)
 
     def test_j2_sub_add_wrong(self):
-        wrong_file_names = (join(self.src_dir, name) for name in ("hello.c", "main.c"))
-        self.assertEqual(self._call_cmd("add", "subtest.subhello", *wrong_file_names, silent=True), 0)
+        err_set = self._get_err_lines_cmd("add", "subtest.subhello", *self.src_files)
+        self.assertNotEqual(err_set, set())
 
     def test_j3_sub_show(self):
         out_set = self._get_lines_cmd("show", "subtest.subhello")
