@@ -2,7 +2,6 @@ import logging
 import os
 from os.path import normpath, join, isdir, dirname, basename, abspath
 
-from cbob.target import Target
 from cbob.pathhelpers import read_symlink, expand_glob, make_rel_symlink, print_information
 
 class Project(object):
@@ -31,6 +30,7 @@ class Project(object):
     @property
     def targets(self):
         if self._targets is None:
+            from cbob.target import Target
             targets_dir = join(self.root_path, ".cbob", "targets")
             self._targets = {name: Target(join(targets_dir, name), self) for name in os.listdir(targets_dir)}
         return self._targets
@@ -64,10 +64,10 @@ class Project(object):
             from cbob.error import CbobError
             raise CbobError("a target named '{}' already exists".format(target_name))
         new_target_dir = join(self.root_path, ".cbob", "targets", target_name)
-        os.makedirs(os.path.join(new_target_dir, "sources"))
-        os.makedirs(os.path.join(new_target_dir, "objects"))
-        os.makedirs(os.path.join(new_target_dir, "precompiled_headers"))
-        os.makedirs(os.path.join(new_target_dir, "dependencies"))
+
+        for dir_name in ("sources", "objects", "precompiled_headers", "dependencies"):
+            os.makedirs(os.path.join(new_target_dir, dir_name)
+
         self._targets = None
         logging.info("Added new target '{}'".format(target_name))
 

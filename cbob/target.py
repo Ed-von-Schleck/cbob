@@ -2,7 +2,7 @@ from functools import partial
 import logging
 from itertools import zip_longest
 import os
-from os.path import basename, join, islink, normpath, abspath, isdir, relpath, commonprefix
+from os.path import basename, join, islink, normpath, abspath, isdir, isfile, relpath, commonprefix
 import subprocess
 
 from cbob.pathhelpers import read_symlink, mangle_path, expand_glob, make_rel_symlink, print_information
@@ -152,14 +152,14 @@ class Target(object):
             make_rel_symlink(dep_path, dep_symlink)
         self._dependencies = None
 
-    def build(self, jobs, oneshot):
+    def build(self, jobs, oneshot, keep_going):
         for dep_name, dep_target in self.dependencies.items():
             logging.info("Building dependency '{}'.".format(dep_name))
-            dep_target.build(jobs, oneshot)
+            dep_target.build(jobs, oneshot, keep_going)
             logging.info("Done building dependency '{}'".format(dep_name))
-        self._build_self(jobs, oneshot)
+        self._build_self(jobs, oneshot, keep_going)
 
-    def _build_self(self, jobs, oneshot):
+    def _build_self(self, jobs, oneshot, keep_going):
         # Bail out if there are no sources -
         # there is no need for a virtual target to be fully configured.
         sources = self.sources
@@ -267,8 +267,11 @@ class Target(object):
             for source_path, source_node in source_node_index.items():
                 dirty_sources.append((source_path, source_node.object_path, source_node.h_path))
                 dirty_headers.append((source_node.h_path, source_node.gch_path, None))
-
         logging.info("done.")
+
+        bin_path = join(self.bin_dir, self.name)
+        is_bin_dirty = len(dirty_sources) > 0 or not isfile(bin_path)
+        failed = False
 
         if dirty_sources:
             # precompile headers
@@ -277,7 +280,7 @@ class Target(object):
                 compile_func = partial(
                         _compile,
                         compiler_path=self.compiler)
-                for result in pool.imap_unordered(compile_func, dirty_headers):
+                for source_file, result in pool.imap_unordered(compile_func, dirty_headers):
                     if result != 0:
                         exit(result)
                 logging.info("done.")
@@ -289,16 +292,23 @@ class Target(object):
                     compiler_path=self.compiler,
                     c_switch=True,
                     include_pch=True)
-            for result in pool.imap_unordered(compile_func, dirty_sources):
+            for source_file, result in pool.imap_unordered(compile_func, dirty_sources):
                 if result != 0:
-                    from cbob.error import CbobError
-                    raise CbobError("compilation failed")
+                    if keep_going:
+                        logging.warning("compilation of file '{}' failed".format(source_file))
+                        failed = True
+                    else:
+                        from cbob.error import CbobError
+                        raise CbobError("compilation of file '{}' failed".format(source_file))
                     
             logging.info("done.")
 
+        if is_bin_dirty:
+            if failed:
+                from cbob.error import CbobError
+                raise CbobError("skip linking because of compilation errors")
             # link
             object_file_names = [node.object_path for node in source_node_index.values()]
-            bin_path = join(self.bin_dir, self.name)
             cmd = [self.linker, "-o", bin_path] + object_file_names
             logging.info("linking ...")
             logging.info("  " + bin_path)
@@ -434,7 +444,7 @@ def _compile(source, compiler_path, c_switch=False, include_pch=False):
         cmd += ["-fpch-preprocess", "-include", h_path]
 
     process = subprocess.Popen(cmd)
-    return process.wait()
+    return source_path, process.wait()
 
 def get_target(raw_target_name):
     import cbob.project

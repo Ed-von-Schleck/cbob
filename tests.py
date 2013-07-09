@@ -27,6 +27,10 @@ HELLO_H = """
 extern void hello();
 """
 
+ERROR_C = """
+#error
+"""
+
 SUBMAIN_C = """
 #include <stdio.h>
 
@@ -46,6 +50,7 @@ class TestCbobCLI(unittest.TestCase):
         cls.sub_dir = join(cls.project_path, "subtest")
         cls.src_files = {join(cls.src_dir, name) for name in ("hello.c", "main.c")}
         cls.sub_files = {join(cls.sub_dir, name) for name in ("submain.c", )}
+        cls.error_files = {join(cls.src_dir, name) for name in ("error.c", )}
         cbob_path = abspath("cbob.py") 
         assert(isfile(cbob_path))
         cls.cbob_cmd = ["python3", cbob_path]
@@ -60,6 +65,8 @@ class TestCbobCLI(unittest.TestCase):
             hello_h_file.write(HELLO_H)
         with open(join(cls.sub_dir, "submain.c"), "w") as submain_c_file:
             submain_c_file.write(SUBMAIN_C)
+        with open(join(cls.src_dir, "error.c"), "w") as error_c_file:
+            error_c_file.write(ERROR_C)
         os.chdir(cls.project_path)
 
     def _call_cmd(self, *args, silent=False):
@@ -127,38 +134,45 @@ class TestCbobCLI(unittest.TestCase):
         self.assertEqual(self._call_cmd("add", "hello", file_wildcard), 0)
 
     def test_e2_show_wildcard(self):
-        self.test_d2_show()
+        # This adds the "error.c" file as well
+        out_set = self._get_lines_cmd("show", "hello")
+        self.assertTrue(self.src_files < out_set)
+        self.assertTrue(self.error_files < out_set)
 
-    def test_f_add_nonexisting_target(self):
+    def test_f1_add_nonexisting_target(self):
         self.assertNotEqual(self._call_cmd("add", "nonexisting_target", *self.src_files, silent=True), 0)
 
-    def test_g1_build(self):
+    def test_g1_build_fail_1(self):
         # it's not configured yet
         self.assertNotEqual(self._call_cmd("build", "hello", silent=True), 0)
 
     def test_g2_configure_auto(self):
         self.assertEqual(self._call_cmd("configure", "hello", "--auto"), 0)
 
-    def test_g3_build(self):
-        self.assertEqual(self._call_cmd("build", "hello"), 0)
+    def test_g3_build_fail_2(self):
+        # it has the error file in it
+        self.assertNotEqual(self._call_cmd("build", "hello", silent=True), 0)
+
+    def test_g4_remove_error_file(self):
+        self.assertEqual(self._call_cmd("remove", "hello", *self.error_files), 0)
     
-    def test_g4_build_again(self):
+    def test_g5_build_again(self):
         self.assertEqual(self._call_cmd("build", "hello"), 0)
 
-    def test_g5_run_binary(self):
+    def test_g6_run_binary(self):
         cmd = (join(self.bin_dir, "hello"))
         out = subprocess.check_output(cmd, universal_newlines=True).strip()
         self.assertEqual(out, "Hello, World")
 
-    def test_g6_clean(self):
+    def test_g7_clean(self):
         self.assertTrue(isfile(join(self.bin_dir, "hello")))
         self.assertEqual(self._call_cmd("clean", "hello", "-a"), 0)
         self.assertFalse(isfile(join(self.bin_dir, "hello")))
 
-    def test_g7_build_oneshot(self):
+    def test_g8_build_oneshot(self):
         self.assertEqual(self._call_cmd("build", "hello", "--oneshot"), 0)
 
-    def test_g8_run_binary_again(self):
+    def test_g9_run_binary_again(self):
         cmd = (join(self.bin_dir, "hello"))
         out = subprocess.check_output(cmd, universal_newlines=True).strip()
         self.assertEqual(out, "Hello, World")
@@ -251,6 +265,16 @@ class TestCbobCLI(unittest.TestCase):
         cmd = (join(self.sub_dir, "subhello"))
         out = subprocess.check_output(cmd, universal_newlines=True).strip()
         self.assertEqual(out, "Hello, Subworld")
+
+    def test_m1_new_error(self):
+        self.assertEqual(self._call_cmd("new", "error"), 0)
+
+    def test_m2_add_error(self):
+        self.assertEqual(self._call_cmd("add", "error", *self.error_files), 0)
+
+    def test_m3_build_error(self):
+        self.assertNotEqual(self._call_cmd("build", "error", silent=True), 0)
+
 
 
     @classmethod
