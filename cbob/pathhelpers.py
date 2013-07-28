@@ -1,4 +1,3 @@
-import logging
 import os
 from os.path import normpath, join, dirname, relpath
 

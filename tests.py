@@ -17,10 +17,17 @@ int main() {
 
 HELLO_C = """
 #include "hello.h"
+#include "constants.h"
+
 #include <stdio.h>
+
 void hello() {
-    printf("Hello, World");
+    printf(HELLO_WORLD);
 }
+"""
+
+CONSTANTS_H = """
+#define HELLO_WORLD "Hello, World"
 """
 
 HELLO_H = """
@@ -49,6 +56,7 @@ class TestCbobCLI(unittest.TestCase):
         cls.bin_dir = join(cls.project_path, "bin")
         cls.sub_dir = join(cls.project_path, "subtest")
         cls.src_files = {join(cls.src_dir, name) for name in ("hello.c", "main.c")}
+        cls.header_files = {join(cls.src_dir, name) for name in ("hello.h", "constants.h")}
         cls.sub_files = {join(cls.sub_dir, name) for name in ("submain.c", )}
         cls.error_files = {join(cls.src_dir, name) for name in ("error.c", )}
         cbob_path = abspath("cbob.py") 
@@ -63,6 +71,8 @@ class TestCbobCLI(unittest.TestCase):
             hello_c_file.write(HELLO_C)
         with open(join(cls.src_dir, "hello.h"), "w") as hello_h_file:
             hello_h_file.write(HELLO_H)
+        with open(join(cls.src_dir, "constants.h"), "w") as constants_h_file:
+            constants_h_file.write(CONSTANTS_H)
         with open(join(cls.sub_dir, "submain.c"), "w") as submain_c_file:
             submain_c_file.write(SUBMAIN_C)
         with open(join(cls.src_dir, "error.c"), "w") as error_c_file:
@@ -77,16 +87,17 @@ class TestCbobCLI(unittest.TestCase):
         else:
             return subprocess.call(cmd)
 
-    def _get_lines_cmd(self, *args):
+    def _get_words_cmd(self, *args):
         cmd = self.cbob_cmd + list(args)
         out = subprocess.check_output(cmd, universal_newlines=True)
-        return {line.strip() for line in out.split("\n") if line}
+        return {line.strip() for line in out.split() if line}
 
-    def _get_err_lines_cmd(self, *args):
+    def _get_err_words_cmd(self, *args):
         cmd = self.cbob_cmd + list(args)
         with open(os.devnull, "w") as null:
             with subprocess.Popen(cmd, stdout=null, stderr=subprocess.PIPE, universal_newlines=True) as process:
-                return process.communicate()[1]
+                out = process.communicate()[1]
+                return {line.strip() for line in out.split() if line}
 
 
     def test_a1_init(self):
@@ -102,23 +113,23 @@ class TestCbobCLI(unittest.TestCase):
         self.assertNotEqual(self._call_cmd("new", "hello", silent=True), 0)
 
     def test_b3_info(self):
-        out_set = self._get_lines_cmd("info")
+        out_set = self._get_words_cmd("info")
         self.assertTrue(set(("hello",)) < out_set)
 
     def test_c_wrong_command(self):
         self.assertNotEqual(self._call_cmd("nonexisting_command", silent=True), 0)
 
     def test_d1_add(self):
-        out_set = self._get_lines_cmd("add", "hello", *self.src_files)
+        out_set = self._get_words_cmd("add", "hello", *self.src_files)
         # If all exists, cbob doesn't say anything
         self.assertEqual(out_set, set())
 
     def test_d2_show(self):
-        out_set = self._get_lines_cmd("show", "hello")
+        out_set = self._get_words_cmd("show", "hello")
         self.assertTrue(self.src_files < out_set)
 
     def test_d3_add_nonexisting_file(self):
-        err_set = self._get_err_lines_cmd("add", "hello", "i-dont-exists.c")
+        err_set = self._get_err_words_cmd("add", "hello", "i-dont-exists.c")
         # it should complain that this file doesn't exist (otherwise stay silent)
         self.assertNotEqual(err_set, set())
 
@@ -126,7 +137,7 @@ class TestCbobCLI(unittest.TestCase):
         self.assertEqual(self._call_cmd("remove", "hello", *self.src_files), 0)
 
     def test_d5_show_not(self):
-        out_set = self._get_lines_cmd("show", "hello")
+        out_set = self._get_words_cmd("show", "hello")
         self.assertFalse(self.src_files < out_set)
 
     def test_e1_add_wildcard(self):
@@ -135,7 +146,7 @@ class TestCbobCLI(unittest.TestCase):
 
     def test_e2_show_wildcard(self):
         # This adds the "error.c" file as well
-        out_set = self._get_lines_cmd("show", "hello")
+        out_set = self._get_words_cmd("show", "hello")
         self.assertTrue(self.src_files < out_set)
         self.assertTrue(self.error_files < out_set)
 
@@ -156,8 +167,9 @@ class TestCbobCLI(unittest.TestCase):
     def test_g4_remove_error_file(self):
         self.assertEqual(self._call_cmd("remove", "hello", *self.error_files), 0)
     
-    def test_g5_build_again(self):
-        self.assertEqual(self._call_cmd("build", "hello"), 0)
+    def test_g5_build_default(self):
+        # target 'hello' should be the default target
+        self.assertEqual(self._call_cmd("build"), 0)
 
     def test_g6_run_binary(self):
         cmd = (join(self.bin_dir, "hello"))
@@ -169,8 +181,26 @@ class TestCbobCLI(unittest.TestCase):
         self.assertEqual(self._call_cmd("clean", "hello", "-a"), 0)
         self.assertFalse(isfile(join(self.bin_dir, "hello")))
 
-    def test_g8_build_oneshot(self):
-        self.assertEqual(self._call_cmd("build", "hello", "--oneshot"), 0)
+    def test_g8_build(self):
+        out_set = self._get_err_words_cmd("-d", "build", "hello")
+        # Check that all sources are mentioned in the debug output
+        self.assertTrue(self.src_files < out_set)
+
+        out_set = self._get_err_words_cmd("-d", "build", "hello")
+        # Check that no source is mentioned in the debug output, since they didn't change
+        self.assertFalse(self.src_files < out_set)
+
+        src_file_list = list(self.src_files)
+        subprocess.call(("touch", src_file_list[0]))
+        out_set = self._get_err_words_cmd("-d", "build", "hello")
+        # Check that just the one source file that we touched is recompiled
+        self.assertTrue(set(src_file_list[0:1]) < out_set)
+        self.assertFalse(set(src_file_list[1:]) < out_set)
+
+        subprocess.call(("touch", join(self.src_dir, "hello.h")))
+        out_set = self._get_err_words_cmd("-d", "build", "hello")
+        # Check that all sources (that depend on the header file) are recompiled
+        self.assertTrue(self.src_files < out_set)
 
     def test_g9_run_binary_again(self):
         cmd = (join(self.bin_dir, "hello"))
@@ -187,7 +217,7 @@ class TestCbobCLI(unittest.TestCase):
         self.assertNotEqual(self._call_cmd("depend", "all", "good-bye", silent=True), 0)
 
     def test_h4_show_depend(self):
-        out_set = self._get_lines_cmd("show", "all", "--dependencies")
+        out_set = self._get_words_cmd("show", "all", "--dependencies")
         self.assertTrue(set(("hello",)) < out_set)
 
     def test_h5_build(self):
@@ -197,11 +227,11 @@ class TestCbobCLI(unittest.TestCase):
         # subproject is not initialized
         # cbob will not fail, but it won't add it either
         # it will instead issue a warning
-        err_set = self._get_err_lines_cmd("subadd", "subtest")
+        err_set = self._get_err_words_cmd("subadd", "subtest")
         self.assertNotEqual(err_set, set())
 
     def test_i2_show_subproject_not(self):
-        out_set = self._get_lines_cmd("info", "--subprojects")
+        out_set = self._get_words_cmd("info", "--subprojects")
         self.assertFalse(set(("subtest",)) < out_set)
 
     def test_i3_sub_init(self):
@@ -213,7 +243,7 @@ class TestCbobCLI(unittest.TestCase):
         self.assertEqual(self._call_cmd("subadd", "subtest", silent=True), 0)
 
     def test_i5_show_subproject(self):
-        out_set = self._get_lines_cmd("info", "--subprojects")
+        out_set = self._get_words_cmd("info", "--subprojects")
         self.assertTrue(set(("subtest",)) < out_set)
 
     def test_i6_sub_init(self):
@@ -231,11 +261,11 @@ class TestCbobCLI(unittest.TestCase):
         self.assertEqual(self._call_cmd("add", "subtest.subhello", *self.sub_files), 0)
 
     def test_j2_sub_add_wrong(self):
-        err_set = self._get_err_lines_cmd("add", "subtest.subhello", *self.src_files)
+        err_set = self._get_err_words_cmd("add", "subtest.subhello", *self.src_files)
         self.assertNotEqual(err_set, set())
 
     def test_j3_sub_show(self):
-        out_set = self._get_lines_cmd("show", "subtest.subhello")
+        out_set = self._get_words_cmd("show", "subtest.subhello")
         self.assertTrue(self.sub_files < out_set)
         self.assertFalse(self.src_files < out_set)
 

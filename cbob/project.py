@@ -1,6 +1,6 @@
 import logging
 import os
-from os.path import normpath, join, isdir, dirname, basename, abspath
+from os.path import normpath, join, isdir, dirname, basename, abspath, islink
 
 from cbob.pathhelpers import read_symlink, expand_glob, make_rel_symlink, print_information
 
@@ -32,7 +32,9 @@ class Project(object):
         if self._targets is None:
             from cbob.target import Target
             targets_dir = join(self.root_path, ".cbob", "targets")
-            self._targets = {name: Target(join(targets_dir, name), self) for name in os.listdir(targets_dir)}
+            self._targets = {name: Target(join(targets_dir, name), self) for name in os.listdir(targets_dir) if name is not "_default"}
+            if self._targets:
+                self._targets["_default"] = self._targets[os.readlink(join(targets_dir, "_default"))]
         return self._targets
 
     @property
@@ -45,28 +47,27 @@ class Project(object):
     @property
     def gcc_path(self):
         if self._gcc_path is None:
-            import subprocess
             try:
+                import subprocess
                 gcc_path = subprocess.check_output(('which', 'gcc'), universal_newlines=True).strip()
             except subprocess.CalledProcessError as e:
                 from cbob.error import CbobError
-                raise CbobError("GCC wasn't found ('which gcc' wasn't successful")
+                raise CbobError("GCC wasn't found ('which gcc' wasn't successful") from e
             self._gcc_path = gcc_path
         return self._gcc_path
 
-    def new_target(self, raw_target_name):
-        *subproject_names, target_name = raw_target_name.split(".")
-        logging.debug("subprojects: " + str(subproject_names))
-        if subproject_names:
-            from cbob.error import CbobError
-            raise CbobError("subprojects are not yet fully supported")
+    def new_target(self, target_name):
+        make_default = "_default" not in self.targets
+        assert("." not in target_name) # subprojects should be handled by caller
         if target_name in self.targets:
             from cbob.error import CbobError
             raise CbobError("a target named '{}' already exists".format(target_name))
         new_target_dir = join(self.root_path, ".cbob", "targets", target_name)
 
         for dir_name in ("sources", "objects", "precompiled_headers", "dependencies"):
-            os.makedirs(os.path.join(new_target_dir, dir_name)
+            os.makedirs(join(new_target_dir, dir_name))
+        if make_default:
+            os.symlink(target_name, join(self.root_path, ".cbob", "targets", "_default"))
 
         self._targets = None
         logging.info("Added new target '{}'".format(target_name))
@@ -75,7 +76,14 @@ class Project(object):
         if not targets and not subprojects:
             all_ = True
         if all_ or targets:
-            print_information("Targets", self.targets)
+            if self.targets:
+                targets = self.targets
+                default_target_name = targets["_default"].name
+                del targets["_default"]
+                for target_name in targets:
+                    print(" ", target_name, "(default)" if target_name == default_target_name else "")
+            else:
+                print("  (none)")
             print()
         if all_ or subprojects:
             print_information("Subprojects", self.subprojects)
@@ -118,9 +126,9 @@ class Project(object):
     def get_target(self, target_name):
         try:
             return self.targets[target_name]
-        except KeyError:
+        except KeyError as e:
             from cbob.error import TargetDoesntExistError
-            raise TargetDoesntExistError(target_name)
+            raise TargetDoesntExistError(target_name) from e
 
 _project = None
 
@@ -134,9 +142,9 @@ def get_project(subproject_names=None):
            while subproject_names:
                subproject_name = subproject_names.pop(0)
                current_project = current_project.subprojects[subproject_name]
-        except KeyError:
+        except KeyError as e:
             from cbob.error import SubprojectDoesntExistError
-            raise SubprojectDoesntExistError(subproject_name)
+            raise SubprojectDoesntExistError(subproject_name) from e
 
     return current_project
 

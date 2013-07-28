@@ -2,17 +2,33 @@ from functools import partial
 import logging
 from itertools import zip_longest
 import os
-from os.path import basename, join, islink, normpath, abspath, isdir, isfile, relpath, commonprefix
+from os.path import basename, join, islink, normpath, abspath, isdir, isfile, relpath, commonprefix, expandvars, split
+import pickle
 import subprocess
 
 from cbob.pathhelpers import read_symlink, mangle_path, expand_glob, make_rel_symlink, print_information
 from cbob.definitions import SOURCE_FILE_EXTENSIONS
+from cbob.node import SourceNode, HeaderNode
 
 class Target(object):
-    __slots__ = ("path", "name", "_sources", "project", "_dependencies", "_compiler", "_linker", "_bin_dir", "_language")
+    __slots__ = ("path", "name", "_sources", "project", "_dependencies", "_compiler", "_linker", "_bin_dir", "_language", "_flags", "_ldflags")
+
+    """
+    def __new__(cls, *args, **kwargs):
+        if args:
+            path, project = args
+            targets_path, name = split(path)
+            if name == "_default":
+                real_name = os.readlink(path)
+                #real_path = join(targets_path, real_name)
+                print(project.targets)
+        new_instance = object.__new__(cls, *args, **kwargs)
+        return new_instance
+    """
 
     def __init__(self, path, project):
         self.path = path
+        #self.name = basename(path) if not islink(path) else basename(os.readlink(path))
         self.name = basename(path)
         self.project = project
         self._sources = None
@@ -21,6 +37,8 @@ class Target(object):
         self._linker = None
         self._bin_dir = None
         self._language = None
+        self._flags = None
+        self._ldflags = None
 
     @property
     def sources(self):
@@ -47,8 +65,9 @@ class Target(object):
         if self._compiler is None:
             try:
                 self._compiler = os.readlink(join(self.path, "compiler"))
-            except OSError:
-                return None
+            except OSError as e:
+                from cbob.error import NotConfiguredError
+                raise NotConfiguredError(self.name) from e
         return self._compiler
 
     @property
@@ -56,8 +75,9 @@ class Target(object):
         if self._linker is None:
             try:
                 self._linker = os.readlink(join(self.path, "linker"))
-            except OSError:
-                return None
+            except OSError as e:
+                from cbob.error import NotConfiguredError
+                raise NotConfiguredError(self.name) from e
         return self._linker
 
     @property
@@ -65,8 +85,9 @@ class Target(object):
         if self._bin_dir is None:
             try:
                 self._bin_dir= os.readlink(join(self.path, "bin_dir"))
-            except OSError:
-                return None
+            except OSError as e:
+                from cbob.error import NotConfiguredError
+                raise NotConfiguredError(self.name) from e
         return self._bin_dir
 
     @property
@@ -74,6 +95,16 @@ class Target(object):
         if self._language is None:
             self._language = self._guess_target_language()
         return self._language
+
+    @property
+    def flags(self):
+        if self._flags is None:
+            try:
+                with open(join(self.path, "flags")) as flags_file:
+                    self._flags = flags_file.read().strip()
+            except IOError:
+                pass
+        return self._flags
 
     def add_sources(self, source_globs):
         sources_dir = join(self.path, "sources")
@@ -171,8 +202,6 @@ class Target(object):
             from cbob.error import NotConfiguredError
             raise NotConfiguredError(self.name)
 
-        import multiprocessing
-        from cbob.node import SourceNode, HeaderNode
         # Here the actual heavy lifting happens.
         # First off, if a `jobs` parameter is given, it's passed on from the argument parser as a list.
         # We take the first element of it. If its `None`, then `multiprocessing.Pool` will use as many
@@ -180,27 +209,114 @@ class Target(object):
         if jobs is not None:
             jobs = jobs[0]
 
-        pool = multiprocessing.Pool(jobs)
+        #TODO: Profile if a `ProcessPool` might be better (that's doubtful, though).
+        #TODO: Investigate if the `concurrent.future` package might offer some advantage.
+        from multiprocessing.pool import ThreadPool
+        pool = ThreadPool(jobs)
         
         logging.info("calculating dependencies ...")
-        # One might argue that a 'Graph' class should exists and a corresponding 'graph' object shoudl be
+        # One might argue that a 'Graph' class should exists and a corresponding 'graph' object should be
         # instanciated here. Tried it; it's somewhat painful to make it reasonably self-contained (needs
         # to know about configuration when reading header output from the gcc, which it needs to
         # know about, ...).
 
-        source_node_index = {file_path: SourceNode(file_path, self) for file_path in sources}
-        header_node_index = {}
+        source_nodes = self._calculate_dependencies(oneshot, pool)
+        logging.info("done.")
 
-        # This is somewhat straight-forward if you have ever written a stream-parser (like SAX), though it adds a twist
-        # in that we save references to processed nodes in a set. It may be a bit unintuitive that we only skip a node 
-        # if it was in another node's dependencies - but note how, when we process a node, we don't add an edge to that
-        # very node, but to the node one layer *down* in the stack. Think about it for a while, then it makes sense.
-        gcc_path = self.project.gcc_path
+        logging.info("determining files for recompilation ...")
+        dirty_sources = []
+        dirty_headers = []
+
+        # Walk the dependency tree to find dirty sources and '.h'-files,
+        # unless the oneshot option is given, in which case all sources and corresping '.h'-files
+        # are marked for recompilation.
+        if not oneshot:
+            for source_node in source_nodes:
+                source_node.mark_dirty(dirty_sources, dirty_headers)
+        else:
+            for source_node in source_nodes:
+                dirty_sources.append((source_node.path, source_node.object_path, source_node.h_path))
+                dirty_headers.append((source_node.h_path, source_node.gch_path, None))
+        logging.info("done.")
+
+        bin_path = join(self.bin_dir, self.name)
+        is_bin_dirty = len(dirty_sources) > 0 or not isfile(bin_path)
+        failed = False
+
+        if dirty_sources:
+            # precompile headers
+            if dirty_headers:
+                logging.info("precompiling headers ...")
+                compile_func = partial(
+                        _compile,
+                        compiler_path=self.compiler)
+                for source_file, result in pool.imap_unordered(compile_func, dirty_headers):
+                    if result != 0:
+                        if keep_going:
+                            logging.warning("compilation of header '{}' failed".format(source_file))
+                            failed = True
+                        else:
+                            exit(result)
+                logging.info("done.")
+
+            # compile sources
+            logging.info("compiling sources ...")
+            compile_func = partial(
+                    _compile,
+                    compiler_path=self.compiler,
+                    c_switch=True,
+                    include_pch=True)
+            for source_file, result in pool.imap_unordered(compile_func, dirty_sources):
+                if result != 0:
+                    if keep_going:
+                        logging.warning("compilation of file '{}' failed".format(source_file))
+                        failed = True
+                    else:
+                        from cbob.error import CbobError
+                        raise CbobError("compilation of file '{}' failed".format(source_file))
+                    
+            logging.info("done.")
+
+        if is_bin_dirty:
+            if failed:
+                from cbob.error import CbobError
+                raise CbobError("skip linking because of compilation errors")
+            # link
+            object_file_names = [node.object_path for node in source_nodes]
+            cmd = [self.linker, "-o", bin_path] + object_file_names
+            logging.info("linking ...")
+            logging.info("  " + bin_path)
+            return_code = subprocess.call(cmd)
+            if return_code != 0:
+                from cbob.error import CbobError
+                raise CbobError("linking failed")
+            logging.info("done.")
+        else:
+            logging.info("Nothing to do.")
+
+    def _calculate_dependencies(self, oneshot, pool):
+        source_node_index = {}
+        header_node_index = {}
+        #depgraph_file_name = join(self.path, "depgrap")
+        #try:
+        #    with open(depgraph_file_name, "rb") as depgraph_file:
+        #        old_source_node_index, old_header_node_index = pickle.load(depgraph_file)
+        #except IOError:
+        #    old_source_node_index = {}
+        #    old_header_node_index = {}
+
+        # This is somewhat straight-forward if you have ever written a stream-parser (like SAX) in that we maintain a stack
+        # of where we currently sit in the tree.
+        # It adds a twist, though, in that we save references to processed nodes in a set. It may be a bit unintuitive that
+        # we only skip a node if it was in another node's dependencies - but note how, when we process a node, we don't add
+        # an edge to that very node, but to the node one layer *down* in the stack. Think about it for a while, then it makes
+        # sense.
         processed_nodes = set() if not oneshot else None
 
         get_dep_info = partial(_get_dep_info, gcc_path=self.project.gcc_path)
-        for file_path, deps in pool.imap_unordered(get_dep_info, sources):
-            node = source_node_index[file_path]
+        for file_path, deps in pool.imap_unordered(get_dep_info, self.sources):
+            node = SourceNode(file_path, self)
+            source_node_index[file_path] = node
             parent_nodes_stack = [node]
 
             includes = []
@@ -221,8 +337,6 @@ class Target(object):
                 parent_nodes_stack[:] = parent_nodes_stack[:current_depth]
                 parent_nodes_stack[-1].dependencies.add(current_node)
                 parent_nodes_stack.append(current_node)
-            if not oneshot:
-                processed_nodes |= node.dependencies
 
             # For every source file, we generate a corresponding `.h` file that consists of all the
             # `#include`s of that source file. This is the `node.h_path`. It is saved in one
@@ -250,75 +364,10 @@ class Target(object):
                 except OSError:
                     # It's OK if it didn't work; it just means that it wasn't there in the first place
                     pass
-
-        logging.info("done.")
-
-        logging.info("determining files for recompilation ...")
-        dirty_sources = []
-        dirty_headers = []
-
-        # Walk the dependency tree to find dirty sources and '.h'-files,
-        # unless the oneshot option is given, in which case all sources and corresping '.h'-files
-        # are marked for recompilation.
-        if not oneshot:
-            for source_node in source_node_index.values():
-                source_node.mark_dirty(dirty_sources, dirty_headers)
-        else:
-            for source_path, source_node in source_node_index.items():
-                dirty_sources.append((source_path, source_node.object_path, source_node.h_path))
-                dirty_headers.append((source_node.h_path, source_node.gch_path, None))
-        logging.info("done.")
-
-        bin_path = join(self.bin_dir, self.name)
-        is_bin_dirty = len(dirty_sources) > 0 or not isfile(bin_path)
-        failed = False
-
-        if dirty_sources:
-            # precompile headers
-            if dirty_headers:
-                logging.info("precompiling headers ...")
-                compile_func = partial(
-                        _compile,
-                        compiler_path=self.compiler)
-                for source_file, result in pool.imap_unordered(compile_func, dirty_headers):
-                    if result != 0:
-                        exit(result)
-                logging.info("done.")
-
-            # compile sources
-            logging.info("compiling sources ...")
-            compile_func = partial(
-                    _compile,
-                    compiler_path=self.compiler,
-                    c_switch=True,
-                    include_pch=True)
-            for source_file, result in pool.imap_unordered(compile_func, dirty_sources):
-                if result != 0:
-                    if keep_going:
-                        logging.warning("compilation of file '{}' failed".format(source_file))
-                        failed = True
-                    else:
-                        from cbob.error import CbobError
-                        raise CbobError("compilation of file '{}' failed".format(source_file))
-                    
-            logging.info("done.")
-
-        if is_bin_dirty:
-            if failed:
-                from cbob.error import CbobError
-                raise CbobError("skip linking because of compilation errors")
-            # link
-            object_file_names = [node.object_path for node in source_node_index.values()]
-            cmd = [self.linker, "-o", bin_path] + object_file_names
-            logging.info("linking ...")
-            logging.info("  " + bin_path)
-            return_code = subprocess.call(cmd)
-            if return_code != 0:
-                from cbob.error import CbobError
-                raise CbobError("linking failed")
-            logging.info("done.")
-        else:
-            logging.info("Nothing to do.")
+        #with open(depgraph_file_name, "wb") as depgraph_file:
+        #    depgraph = (source_node_index, header_node_index)
+        #    pickle.dump(depgraph, depgraph_file, pickle.HIGHEST_PROTOCOL)
+        return source_node_index.values()
 
     def _guess_target_language(self):
         for file_name in self.sources:
@@ -330,7 +379,7 @@ class Target(object):
                 return "C++"
         return None
 
-    def configure(self, auto, force, compiler, linker, bin_dir):
+    def configure(self, auto, force, compiler, linker, bin_dir, flags, ldflags):
         if compiler is not None:
             os.symlink(compiler, join(self.path, "compiler"))
             self._compiler = None
@@ -340,57 +389,76 @@ class Target(object):
         if bin_dir is not None:
             os.symlink(bin_dir, join(self.path, "bin_dir"))
             self._bin_dir = None
+        if flags is not None:
+            pass
+        if ldflags is not None:
+            pass
         if auto:
             if compiler is None:
-                if self.compiler is not None and not force:
-                    logging.warning("There's already a compiler configured. Use '--force' to overwrite current configuration")
-                else:
-                    try:
-                        if self.language is "C":
-                            compiler_path = subprocess.check_output(["which", "gcc"]).strip()
-                        elif lang == "C++":
-                            compiler_path = subprocess.check_output(["which", "g++"]).strip()
-                        else:
-                            from cbob.error import CbobError
-                            raise CbobError("unable to guess the language of the target's sources. Please configure manually")
-                    except subprocess.CalledProcessError:
-                        from cbob.error import CbobError
-                        raise CbobError("no compiler for language '{}' found (might be cbob's fault).".format(self.language))
-                    compiler_symlink = join(self.path, "compiler")
-                    if self.compiler is not None and force:
-                        os.unlink(compiler_symlink)
+                compiler_symlink = self._check_prepare_symlink("compiler", "compiler", force)
+                if compiler_symlink is not None:
+                    compiler_path = self._find_compiler_path()
                     os.symlink(compiler_path, compiler_symlink)
                     self._compiler = None
             if linker is None:
-                if self.linker is not None and not force:
-                    logging.warning("There's already a linker configured. Use '--force' to overwrite current configuration")
-                else:
-                    linker_symlink = join(self.path, "linker")
-                    if self.linker is not None and force:
-                        os.unlink(linker_symlink)
+                linker_symlink = self._check_prepare_symlink("linker", "linker", force)
+                if linker_symlink is not None:
                     os.symlink(self.compiler, linker_symlink)
                     self._linker = None
             if bin_dir is None:
-                if self.bin_dir is not None and not force:
-                    logging.warning("There's already a binary output directory configured. Use '--force' to overwrite current configuration")
-                else:
-                    bin_dir_symlink = join(self.path, "bin_dir")
-                    if self.bin_dir is not None and force:
-                        os.unlink(bin_dir_symlink)
-                    assumed_bindir = os.path.join(self.project.root_path, "bin")
-                    bindir_auto = assumed_bindir if os.path.isdir(assumed_bindir) else self.project.root_path
+                bin_dir_symlink = self._check_prepare_symlink("bin_dir", "binary output directory", force)
+                if bin_dir_symlink is not None:
+                    assumed_bindir = join(self.project.root_path, "bin")
+                    bindir_auto = assumed_bindir if isdir(assumed_bindir) else self.project.root_path
                     os.symlink(bindir_auto, bin_dir_symlink)
                     self._bin_dir = None
         logging.info("compiler: '{}', "
                      "linker: '{}', "
                      "binary output directory: '{}'".format(self.compiler, self.linker, self.bin_dir))
 
+    def _check_prepare_symlink(self, name, description, force):
+        symlink = join(self.path, name)
+        symlink_exists = islink(symlink)
+        if symlink_exists and not force:
+            logging.warning("There's already a {} configured. Use '--force' to overwrite current configuration".format(description))
+            return None
+        else:
+            if symlink_exists and force:
+                os.unlink(symlink)
+            return symlink
+
+
+    def _find_compiler_path(self):
+        try:
+            if self.language is "C":
+                path_from_var = expandvars("$CC")
+                if path_from_var != "$CC":
+                    logging.debug("determined C compiler path from $CC environment variable")
+                    compiler_path = path_from_var
+                else:
+                    logging.debug("determined C compiler path from `which gcc`")
+                    compiler_path = subprocess.check_output(["which", "gcc"]).strip()
+            elif lang == "C++":
+                if path_from_var != "$CXX":
+                    logging.debug("determined C compiler path from $CXX environment variable")
+                    compiler_path = path_from_var
+                else:
+                    logging.debug("determined C compiler path from `which g++`")
+                    compiler_path = subprocess.check_output(["which", "g++"]).strip()
+            else:
+                from cbob.error import CbobError
+                raise CbobError("unable to guess the language of the target's sources. Please configure manually")
+        except subprocess.CalledProcessError:
+            from cbob.error import CbobError
+            raise CbobError("no compiler for language '{}' found (might be cbob's fault).".format(self.language))
+        return compiler_path
+
     def _clean_dir(self, dirname):
         dir_path = join(self.path, dirname)
         for file_name in os.listdir(dir_path):
             file_path = join(dir_path, file_name)
             os.remove(file_path)
-            logging.debug("removed object file '{}'".format(file_name))
+            logging.debug("removed file '{}'".format(file_name))
 
 
     def clean(self, all_, object_files, pch_files, bin_file):
