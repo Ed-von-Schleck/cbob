@@ -5,7 +5,6 @@ from os.path import normpath, join, isdir, dirname, basename, abspath, islink
 from cbob.pathhelpers import read_symlink, expand_glob, make_rel_symlink, print_information
 
 class Project(object):
-
     def __init__(self, root_path=None):
         if root_path is None:
             path = os.getcwd()
@@ -64,7 +63,7 @@ class Project(object):
             raise CbobError("a target named '{}' already exists".format(target_name))
         new_target_dir = join(self.root_path, ".cbob", "targets", target_name)
 
-        for dir_name in ("sources", "objects", "precompiled_headers", "dependencies"):
+        for dir_name in ("sources", "objects", "precompiled_headers", "dependencies", "plugins"):
             os.makedirs(join(new_target_dir, dir_name))
         if make_default:
             os.symlink(target_name, join(self.root_path, ".cbob", "targets", "_default"))

@@ -7,7 +7,7 @@ import tempfile
 import unittest
 
 MAIN_C = """
-#include "hello.h"
+#include "../include/hello.h"
 
 int main() {
     hello();
@@ -16,8 +16,8 @@ int main() {
 """
 
 HELLO_C = """
-#include "hello.h"
-#include "constants.h"
+#include "../include/hello.h"
+#include "../include/constants.h"
 
 #include <stdio.h>
 
@@ -47,36 +47,64 @@ int main() {
 }
 """
 
+PRE_BUILD_PY = """
+def pre_build(target):
+    print("Hello pre-build")
+"""
+
+POST_BUILD_PY = """
+def post_build(target):
+    print("Hello post-build")
+"""
+
 class TestCbobCLI(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.project_dir = tempfile.TemporaryDirectory()
         cls.project_path = cls.project_dir.name
-        cls.src_dir = join(cls.project_path, "src")
-        cls.bin_dir = join(cls.project_path, "bin")
-        cls.sub_dir = join(cls.project_path, "subtest")
-        cls.src_files = {join(cls.src_dir, name) for name in ("hello.c", "main.c")}
-        cls.header_files = {join(cls.src_dir, name) for name in ("hello.h", "constants.h")}
-        cls.sub_files = {join(cls.sub_dir, name) for name in ("submain.c", )}
-        cls.error_files = {join(cls.src_dir, name) for name in ("error.c", )}
+
         cbob_path = abspath("cbob.py") 
         assert(isfile(cbob_path))
         cls.cbob_cmd = ["python3", cbob_path]
-        os.makedirs(cls.src_dir)
-        os.makedirs(cls.bin_dir)
-        os.makedirs(cls.sub_dir)
-        with open(join(cls.src_dir, "main.c"), "w") as main_c_file:
-            main_c_file.write(MAIN_C)
-        with open(join(cls.src_dir, "hello.c"), "w") as hello_c_file:
-            hello_c_file.write(HELLO_C)
-        with open(join(cls.src_dir, "hello.h"), "w") as hello_h_file:
-            hello_h_file.write(HELLO_H)
-        with open(join(cls.src_dir, "constants.h"), "w") as constants_h_file:
-            constants_h_file.write(CONSTANTS_H)
-        with open(join(cls.sub_dir, "submain.c"), "w") as submain_c_file:
-            submain_c_file.write(SUBMAIN_C)
-        with open(join(cls.src_dir, "error.c"), "w") as error_c_file:
-            error_c_file.write(ERROR_C)
+
+        files = {
+            "src": {
+                "hello.c": HELLO_C,
+                "main.c": MAIN_C,
+            },
+            "include": {
+                "hello.h": HELLO_H,
+                "constants.h": CONSTANTS_H,
+            },
+            "bin": {
+            },
+            "subtest": {
+                "submain.c": SUBMAIN_C,
+            },
+            "plugins": {
+                "prebuild.py": PRE_BUILD_PY,
+                "postbuild.py": POST_BUILD_PY
+            },
+            "error": {
+                "error.c": ERROR_C
+            }
+        }
+
+        cls.files = {}
+
+        for rel_dirname, files in files.items():
+            abs_dirname = join(cls.project_path, rel_dirname)
+            os.makedirs(abs_dirname)
+            cls.files[rel_dirname] = set()
+            for filename, content in files.items():
+                abs_filepath = join(abs_dirname, filename)
+                with open(abs_filepath, "w") as f:
+                    f.write(content)
+                cls.files[rel_dirname].add(abs_filepath)
+
+        cls.bin_dir = join(cls.project_path, "bin")
+        cls.sub_dir = join(cls.project_path, "subtest")
+
         os.chdir(cls.project_path)
 
     def _call_cmd(self, *args, silent=False):
@@ -102,14 +130,10 @@ class TestCbobCLI(unittest.TestCase):
 
     def test_a1_init(self):
         self.assertEqual(self._call_cmd("init"), 0)
-
-    def test_a2_init_again(self):
         self.assertNotEqual(self._call_cmd("init", silent=True), 0)
 
     def test_b1_new(self):
         self.assertEqual(self._call_cmd("new", "hello"), 0)
-
-    def test_b2_new_again(self):
         self.assertNotEqual(self._call_cmd("new", "hello", silent=True), 0)
 
     def test_b3_info(self):
@@ -120,13 +144,13 @@ class TestCbobCLI(unittest.TestCase):
         self.assertNotEqual(self._call_cmd("nonexisting_command", silent=True), 0)
 
     def test_d1_add(self):
-        out_set = self._get_words_cmd("add", "hello", *self.src_files)
-        # If all exists, cbob doesn't say anything
+        out_set = self._get_words_cmd("add", "hello", *self.files["src"])
+        # If all files exist, cbob doesn't say anything
         self.assertEqual(out_set, set())
 
     def test_d2_show(self):
         out_set = self._get_words_cmd("show", "hello")
-        self.assertTrue(self.src_files < out_set)
+        self.assertTrue(self.files["src"] < out_set)
 
     def test_d3_add_nonexisting_file(self):
         err_set = self._get_err_words_cmd("add", "hello", "i-dont-exists.c")
@@ -134,38 +158,34 @@ class TestCbobCLI(unittest.TestCase):
         self.assertNotEqual(err_set, set())
 
     def test_d4_remove(self):
-        self.assertEqual(self._call_cmd("remove", "hello", *self.src_files), 0)
+        self.assertEqual(self._call_cmd("remove", "hello", *self.files["src"]), 0)
 
     def test_d5_show_not(self):
         out_set = self._get_words_cmd("show", "hello")
-        self.assertFalse(self.src_files < out_set)
+        self.assertFalse(self.files["src"] < out_set)
 
     def test_e1_add_wildcard(self):
         file_wildcard = join("src", "*.c")
+        self.assertEqual(self._call_cmd("add", "hello", file_wildcard), 0)
+        file_wildcard = join("error", "*.c")
         self.assertEqual(self._call_cmd("add", "hello", file_wildcard), 0)
 
     def test_e2_show_wildcard(self):
         # This adds the "error.c" file as well
         out_set = self._get_words_cmd("show", "hello")
-        self.assertTrue(self.src_files < out_set)
-        self.assertTrue(self.error_files < out_set)
+        self.assertTrue(self.files["src"] < out_set)
+        self.assertTrue(self.files["error"] < out_set)
 
     def test_f1_add_nonexisting_target(self):
-        self.assertNotEqual(self._call_cmd("add", "nonexisting_target", *self.src_files, silent=True), 0)
+        self.assertNotEqual(self._call_cmd("add", "nonexisting_target", *self.files["src"], silent=True), 0)
 
-    def test_g1_build_fail_1(self):
+    def test_g1_build_fail(self):
         # it's not configured yet
         self.assertNotEqual(self._call_cmd("build", "hello", silent=True), 0)
-
-    def test_g2_configure_auto(self):
         self.assertEqual(self._call_cmd("configure", "hello", "--auto"), 0)
-
-    def test_g3_build_fail_2(self):
         # it has the error file in it
         self.assertNotEqual(self._call_cmd("build", "hello", silent=True), 0)
-
-    def test_g4_remove_error_file(self):
-        self.assertEqual(self._call_cmd("remove", "hello", *self.error_files), 0)
+        self.assertEqual(self._call_cmd("remove", "hello", *self.files["error"]), 0)
     
     def test_g5_build_default(self):
         # target 'hello' should be the default target
@@ -184,23 +204,25 @@ class TestCbobCLI(unittest.TestCase):
     def test_g8_build(self):
         out_set = self._get_err_words_cmd("-d", "build", "hello")
         # Check that all sources are mentioned in the debug output
-        self.assertTrue(self.src_files < out_set)
+        self.assertTrue(self.files["src"] < out_set)
 
         out_set = self._get_err_words_cmd("-d", "build", "hello")
         # Check that no source is mentioned in the debug output, since they didn't change
-        self.assertFalse(self.src_files < out_set)
+        self.assertFalse(self.files["src"] < out_set)
 
-        src_file_list = list(self.src_files)
+        src_file_list = list(self.files["src"])
         subprocess.call(("touch", src_file_list[0]))
         out_set = self._get_err_words_cmd("-d", "build", "hello")
         # Check that just the one source file that we touched is recompiled
         self.assertTrue(set(src_file_list[0:1]) < out_set)
         self.assertFalse(set(src_file_list[1:]) < out_set)
 
-        subprocess.call(("touch", join(self.src_dir, "hello.h")))
+        header_file_list = list(self.files["include"])
+        for header_file in self.files["include"]:
+            subprocess.call(("touch", header_file))
         out_set = self._get_err_words_cmd("-d", "build", "hello")
         # Check that all sources (that depend on the header file) are recompiled
-        self.assertTrue(self.src_files < out_set)
+        self.assertTrue(self.files["src"] < out_set)
 
     def test_g9_run_binary_again(self):
         cmd = (join(self.bin_dir, "hello"))
@@ -212,8 +234,6 @@ class TestCbobCLI(unittest.TestCase):
 
     def test_h2_depend_child(self):
         self.assertEqual(self._call_cmd("depend", "all", "hello"), 0)
-
-    def test_h3_depend_nonexisting_child(self):
         self.assertNotEqual(self._call_cmd("depend", "all", "good-bye", silent=True), 0)
 
     def test_h4_show_depend(self):
@@ -253,21 +273,19 @@ class TestCbobCLI(unittest.TestCase):
 
     def test_i7_sub_new(self):
         self.assertEqual(self._call_cmd("new", "subtest.subhello"), 0)
-
-    def test_i8_sub_new_again(self):
         self.assertNotEqual(self._call_cmd("new", "subtest.subhello", silent=True), 0)
 
     def test_j1_sub_add(self):
-        self.assertEqual(self._call_cmd("add", "subtest.subhello", *self.sub_files), 0)
+        self.assertEqual(self._call_cmd("add", "subtest.subhello", *self.files["subtest"]), 0)
 
     def test_j2_sub_add_wrong(self):
-        err_set = self._get_err_words_cmd("add", "subtest.subhello", *self.src_files)
+        err_set = self._get_err_words_cmd("add", "subtest.subhello", *self.files["src"])
         self.assertNotEqual(err_set, set())
 
     def test_j3_sub_show(self):
         out_set = self._get_words_cmd("show", "subtest.subhello")
-        self.assertTrue(self.sub_files < out_set)
-        self.assertFalse(self.src_files < out_set)
+        self.assertTrue(self.files["subtest"] < out_set)
+        self.assertFalse(self.files["src"] < out_set)
 
     def test_k1_sub_configure_auto(self):
         self.assertEqual(self._call_cmd("configure", "subtest.subhello", "--auto"), 0)
@@ -300,11 +318,20 @@ class TestCbobCLI(unittest.TestCase):
         self.assertEqual(self._call_cmd("new", "error"), 0)
 
     def test_m2_add_error(self):
-        self.assertEqual(self._call_cmd("add", "error", *self.error_files), 0)
+        self.assertEqual(self._call_cmd("add", "error", *self.files["error"]), 0)
 
     def test_m3_build_error(self):
         self.assertNotEqual(self._call_cmd("build", "error", silent=True), 0)
 
+    def test_n1_register(self):
+        # first test that default target builds
+        self.assertEqual(self._call_cmd("build"), 0)
+        for plugin in self.files["plugins"]:
+            self.assertEqual(self._call_cmd("register", "_default", plugin), 0)
+        out_set = self._get_words_cmd("build")
+        self.assertTrue({"Hello", "pre-build"} < out_set)
+        self.assertTrue({"Hello", "post-build"} < out_set)
+        
 
 
     @classmethod

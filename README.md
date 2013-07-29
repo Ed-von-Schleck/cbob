@@ -56,7 +56,7 @@ Simply do
 ```bash
 cbob build <target-name>
 ```
-and you will end up with a binary in the directory you configured for your output (if you chose to auto-configure it's either `bin/` if it's there or the project's root). It will automatically use as many processes as there are cpus (or you can specify the number manually with `-j`/`--jobs`).
+and you will end up with a binary in the directory you configured for your output (if you chose to auto-configure it's either `bin/` if it's there or the project's root). *cbob* will automatically use as many processes as there are cpus (or you can specify the number manually with `-j`/`--jobs`).
 
 A more complete documentation will be written once all the planned features are in placed (until then, expect *cbob* to change a lot).
 
@@ -69,14 +69,16 @@ Apart from the obvious, there's
 * Precompiled headers: By default, *cbob* precompiles your headers (and uses them) transparently.
 * Target dependencies: You can make a target dependend on other targets. When building a target, *cbob* first makes sure its dependencies are up to date. For example, you can make a *virtual* `all` target that depends on all other targets (which can have dependencies as well).
 * Sub-projects: Let *cbob* handle projects in subdirectories (think of git submodules, and stuff like pre-checks as *cbob*-projects, hosted on github, as easily re-usable recipies).
+* Commands API: Use *cbob*s commands from Python scripts.
+* Plugins: Add features (or change how *cbob* works) by hooking custom Python code into *cbob*.
 
 Planned Features
 ----------------
 
+* Flags: Yeah. Embarrisingly, *cbob* can't handle C(XX)FLAGS right now. Is to be solved when I decide on how to implement options.
 * Runners: Run code (shell files or binaries) before or after compiling (like for checks and tests).
 * Options: Make it easy to define `--enable-foo` style configuration options.
 * Libtool support: Use libtool to make building libraries easier.
-* Plugins: Add features (or change how *cbob* works) by hooking custom Python code into *cbob*.
 
 Maybe-Features
 --------------
@@ -98,7 +100,6 @@ Todo
 
 * Tests: Expand on what we have. There should be more tests.
 * Documentation: Yeah. And Tutorials. It's coming once most planned features are in place.
-* API: Expose and document an API for commands, kinda what I seem to remember *mercurial* offers (but nothing low-level - there's gonna be plugins for that).
 
 Feedback
 --------

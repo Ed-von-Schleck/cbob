@@ -2,8 +2,8 @@ from functools import partial
 import logging
 from itertools import zip_longest
 import os
-from os.path import basename, join, islink, normpath, abspath, isdir, isfile, relpath, commonprefix, expandvars, split
-import pickle
+from os.path import basename, join, islink, normpath, abspath, isdir, isfile, relpath, commonprefix, expandvars, split, splitext
+#import pickle
 import subprocess
 
 from cbob.pathhelpers import read_symlink, mangle_path, expand_glob, make_rel_symlink, print_information
@@ -11,24 +11,10 @@ from cbob.definitions import SOURCE_FILE_EXTENSIONS
 from cbob.node import SourceNode, HeaderNode
 
 class Target(object):
-    __slots__ = ("path", "name", "_sources", "project", "_dependencies", "_compiler", "_linker", "_bin_dir", "_language", "_flags", "_ldflags")
-
-    """
-    def __new__(cls, *args, **kwargs):
-        if args:
-            path, project = args
-            targets_path, name = split(path)
-            if name == "_default":
-                real_name = os.readlink(path)
-                #real_path = join(targets_path, real_name)
-                print(project.targets)
-        new_instance = object.__new__(cls, *args, **kwargs)
-        return new_instance
-    """
+    __slots__ = ("path", "name", "_sources", "project", "_dependencies", "_compiler", "_linker", "_bin_dir", "_language", "_plugins")
 
     def __init__(self, path, project):
         self.path = path
-        #self.name = basename(path) if not islink(path) else basename(os.readlink(path))
         self.name = basename(path)
         self.project = project
         self._sources = None
@@ -37,8 +23,7 @@ class Target(object):
         self._linker = None
         self._bin_dir = None
         self._language = None
-        self._flags = None
-        self._ldflags = None
+        self._plugins = None
 
     @property
     def sources(self):
@@ -50,8 +35,12 @@ class Target(object):
     @property
     def dependencies(self):
         if self._dependencies is None:
-            import cbob.project
             dependencies_dir = join(self.path, "dependencies")
+            if not isdir(dependencies_dir):
+                from cbob.error import NotConfiguredError
+                raise NotConfiguredError(self.name) from e
+
+            import cbob.project
             raw_dep_names = os.listdir(dependencies_dir)
             self._dependencies = {}
             for raw_dep_name in raw_dep_names:
@@ -97,21 +86,30 @@ class Target(object):
         return self._language
 
     @property
-    def flags(self):
-        if self._flags is None:
-            try:
-                with open(join(self.path, "flags")) as flags_file:
-                    self._flags = flags_file.read().strip()
-            except IOError:
-                pass
-        return self._flags
+    def plugins(self):
+        if self._plugins is None:
+            import imp
+            plugins_dir = join(self.path, "plugins")
+            self._plugins = {}
+            if not isdir(plugins_dir):
+                from cbob.error import NotConfiguredError
+                raise NotConfiguredError(self.name) from e
+            for filename in os.listdir(plugins_dir):
+                abs_filename = read_symlink(filename, plugins_dir)
+                path, filename = os.path.split(abs_filename)
+                name, ext = splitext(filename)
+                fp, fn, desc = imp.find_module(name, [path])
+                plugin_module = imp.load_module(name, fp, fn, desc)
+                self.plugins[abs_filename] = plugin_module
+        return self._plugins
+            
 
     def add_sources(self, source_globs):
         sources_dir = join(self.path, "sources")
         added_file_names = []
         for file_list in expand_glob(source_globs):
             for file_name, abs_file_path, symlink_path in self.project.iter_file_list(file_list, sources_dir):
-                if not os.path.splitext(file_name)[1] in SOURCE_FILE_EXTENSIONS:
+                if not splitext(file_name)[1] in SOURCE_FILE_EXTENSIONS:
                     logging.warning("'{}' does not seem to be a C/C++ source file (ending is not one of {}).".format(file_name, ", ".join(SOURCE_FILE_EXTENSIONS)))
                     continue
                 if islink(symlink_path):
@@ -147,7 +145,7 @@ class Target(object):
 
         removed_files_count = len(removed_file_names)
         if removed_files_count == 0:
-            logging.warning("No files have been removed from to target '{}'.".format(self.name))
+            logging.warning("No files have been removed from target '{}'.".format(self.name))
         elif removed_files_count == 1:
             logging.info("File '{}' has been removed from target '{}'.".format(removed_file_names[0], self.name))
         else:
@@ -183,6 +181,28 @@ class Target(object):
             make_rel_symlink(dep_path, dep_symlink)
         self._dependencies = None
 
+    def register(self, plugins):
+        plugins_dir = join(self.path, "plugins")
+        added_plugins = []
+        for file_list in expand_glob(plugins):
+            for file_name, abs_file_path, symlink_path in self.project.iter_file_list(file_list, plugins_dir):
+                if abs_file_path in self.plugins:
+                    logger.warning("'{}' is already a plugin of target '{}'.".format(plugin, self.name))
+                    continue
+                added_plugins.append(file_name)
+                make_rel_symlink(abs_file_path, symlink_path)
+
+        added_plugins_count = len(added_plugins)
+        if added_plugins_count == 0:
+            logging.warning("No plugins has been registered for target '{}'.".format(self.name))
+        elif added_plugins_count == 1:
+            logging.info("Plugin '{}' has been registered for target '{}'.".format(added_plugins[0], self.name))
+        else:
+            logging.info("Plugins registered for target '{}':\n  {}".format(self.name, "\n  ".join(added_plugins)))
+
+        self._plugins = None
+        
+
     def build(self, jobs, oneshot, keep_going):
         for dep_name, dep_target in self.dependencies.items():
             logging.info("Building dependency '{}'.".format(dep_name))
@@ -191,6 +211,10 @@ class Target(object):
         self._build_self(jobs, oneshot, keep_going)
 
     def _build_self(self, jobs, oneshot, keep_going):
+        self.run_plugins("pre_build")
+        #for plugin in self.plugins.values():
+        #    if hasattr(plugin, "pre_build"):
+        #        plugin.pre_build(self)
         # Bail out if there are no sources -
         # there is no need for a virtual target to be fully configured.
         sources = self.sources
@@ -293,6 +317,10 @@ class Target(object):
             logging.info("done.")
         else:
             logging.info("Nothing to do.")
+        self.run_plugins("post_build")
+        #for plugin in self.plugins.values():
+        #    if hasattr(plugin, "post_build"):
+        #        plugin.pre_build(self)
 
     def _calculate_dependencies(self, oneshot, pool):
         source_node_index = {}
@@ -371,7 +399,7 @@ class Target(object):
 
     def _guess_target_language(self):
         for file_name in self.sources:
-            root, ext = os.path.splitext(file_name)
+            root, ext = splitext(file_name)
             ext = ext.lower()
             if ext == ".c":
                 return "C"
@@ -379,7 +407,7 @@ class Target(object):
                 return "C++"
         return None
 
-    def configure(self, auto, force, compiler, linker, bin_dir, flags, ldflags):
+    def configure(self, auto, force, compiler, linker, bin_dir):
         if compiler is not None:
             os.symlink(compiler, join(self.path, "compiler"))
             self._compiler = None
@@ -389,10 +417,6 @@ class Target(object):
         if bin_dir is not None:
             os.symlink(bin_dir, join(self.path, "bin_dir"))
             self._bin_dir = None
-        if flags is not None:
-            pass
-        if ldflags is not None:
-            pass
         if auto:
             if compiler is None:
                 compiler_symlink = self._check_prepare_symlink("compiler", "compiler", force)
@@ -476,6 +500,15 @@ class Target(object):
             except OSError:
                 logging.debug("no binary file to remove")
             logging.info("cleaned binary file")
+
+    def run_plugins(self, hookname):
+        # somewhat inefficient (optimally the plugins are indexed by the hooks
+        # they provide), but not likely to be a bottleneck
+        for plugin in self.plugins.values():
+            try:
+                getattr(plugin, hookname)(self)
+            except AttributeError:
+                pass
 
 
 def _get_dep_info(file_path, gcc_path):

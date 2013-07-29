@@ -37,10 +37,10 @@ def depend(target, dependencies):
     current_target = cbob.target.get_target(target)
     current_target.depend_on(dependencies)
 
-def configure(target, auto, force, compiler, linker, bindir, flags, ldflags):
+def configure(target, auto, force, compiler, linker, bindir):
     import cbob.target
     current_target = cbob.target.get_target(target)
-    current_target.configure(auto, force, compiler, linker, bindir, flags, ldflags)
+    current_target.configure(auto, force, compiler, linker, bindir)
 
 def subadd(projects):
     import cbob.project
@@ -50,4 +50,10 @@ def clean(target, all_, objects, precompiled, bin_):
     import cbob.target
     current_target = cbob.target.get_target(target)
     current_target.clean(all_, objects, precompiled, bin_)
+
+def register(target, plugins):
+    import cbob.target
+    current_target = cbob.target.get_target(target)
+    current_target.register(plugins)
+
 

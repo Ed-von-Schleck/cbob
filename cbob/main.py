@@ -71,11 +71,16 @@ def main():
     parser_configure.add_argument("-a", "--auto", action="store_true", help="Let cbob figure things out automatically.")
     parser_configure.add_argument("-f", "--force", action="store_true", help="Force overwriting previous configuration when '--auto' is used.")
     parser_configure.add_argument("-c", "--compiler", nargs=1, help="The path to the compiler binary (e.g. '--compiler=\"/usr/bin/gcc\"').")
-    parser_configure.add_argument("-l", "--linker", nargs=1, help="The path to the compiler binary (e.g. '--linker=\"/usr/bin/ld\"').")
-    parser_configure.add_argument("-b", "--bindir", nargs=1, help="The path to the output directory for binaries (e.g. '--bindir=\"bin/\"').")
-    parser_configure.add_argument("--flags", nargs="*", help="The CFLAGS or CXXFLAGS to use (e.g. '--flags=\"$CFLAGS\"').")
-    parser_configure.add_argument("--ldflags", nargs="*", help="The LDFLAGS to use (e.g. '--ldflags=\"$LDFLAGS\"').")
+    parser_configure.add_argument("-l", "--linker", nargs=1, help="The path to the compiler binary (e.g. '--linker=\"/usr/bin/ld.gold\"').")
+    parser_configure.add_argument("-b", "--bindir", nargs=1, help="The path to the output directory for binaries (e.g. '--bindir=\"out/\"').")
+    #parser_configure.add_argument("--flags", nargs="*", help="The CFLAGS or CXXFLAGS to use (e.g. '--flags=\"$CFLAGS\"').")
+    #parser_configure.add_argument("--ldflags", nargs="*", help="The LDFLAGS to use (e.g. '--ldflags=\"$LDFLAGS\"').")
     parser_configure.set_defaults(func=commands.configure)
+
+    parser_register = subparsers.add_parser("register", help="register a python plugin for a target.")
+    parser_register.add_argument("target", help="The target to for the plugin.")
+    parser_register.add_argument("plugins", nargs="+", help="The path to the plugin.")
+    parser_register.set_defaults(func=commands.register)
 
     args = parser.parse_args()
 
