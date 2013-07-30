@@ -247,7 +247,7 @@ class TestCbobCLI(unittest.TestCase):
         # subproject is not initialized
         # cbob will not fail, but it won't add it either
         # it will instead issue a warning
-        err_set = self._get_err_words_cmd("subadd", "subtest")
+        err_set = self._get_err_words_cmd("subprojects", "add", "subtest")
         self.assertNotEqual(err_set, set())
 
     def test_i2_show_subproject_not(self):
@@ -260,7 +260,7 @@ class TestCbobCLI(unittest.TestCase):
         os.chdir(self.project_path)
 
     def test_i4_subadd_for_real(self):
-        self.assertEqual(self._call_cmd("subadd", "subtest", silent=True), 0)
+        self.assertEqual(self._call_cmd("subprojects", "add", "subtest", silent=True), 0)
 
     def test_i5_show_subproject(self):
         out_set = self._get_words_cmd("info", "--subprojects")
@@ -327,10 +327,28 @@ class TestCbobCLI(unittest.TestCase):
         # first test that default target builds
         self.assertEqual(self._call_cmd("build"), 0)
         for plugin in self.files["plugins"].values():
-            self.assertEqual(self._call_cmd("register", plugin), 0)
+            self.assertEqual(self._call_cmd("plugins", "add", plugin), 0)
+        for plugin in self.files["plugins"].values():
+            # cbob should complain if we try to add the same plugin twice
+            err_set = self._get_err_words_cmd("plugins", "add", plugin)
+            self.assertNotEqual(err_set, set())
         out_set = self._get_words_cmd("build")
         self.assertTrue({"Hello", "pre-build"} < out_set)
         self.assertTrue({"Hello", "post-build"} < out_set)
+        out_set = self._get_words_cmd("show", "--plugins")
+        self.assertTrue(set(self.files["plugins"].values()) < out_set)
+
+        for plugin in self.files["plugins"].values():
+            self.assertEqual(self._call_cmd("plugins", "remove", plugin), 0)
+        for plugin in self.files["plugins"].values():
+            # cbob should complain if we try to remove the same plugin twice
+            err_set = self._get_err_words_cmd("plugins", "remove", plugin)
+            self.assertNotEqual(err_set, set())
+        out_set = self._get_words_cmd("build")
+        self.assertFalse({"Hello", "pre-build"} < out_set)
+        self.assertFalse({"Hello", "post-build"} < out_set)
+        out_set = self._get_words_cmd("show", "--plugins")
+        self.assertFalse(set(self.files["plugins"].values()) < out_set)
         
 
 

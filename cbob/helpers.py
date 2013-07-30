@@ -1,3 +1,4 @@
+import logging
 import os
 from os.path import normpath, join, dirname, relpath
 
@@ -31,3 +32,11 @@ def print_information(name, some_list):
     else:
         print("  (none)")
 
+def log_summary(changed_items, zero_message, one_message, many_message):
+    changed_items_count = len(changed_items)
+    if changed_items_count == 0:
+        logging.warning(zero_message)
+    elif changed_items_count == 1:
+        logging.info(one_message)
+    else:
+        logging.info(many_message)

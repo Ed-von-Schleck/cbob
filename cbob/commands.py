@@ -22,10 +22,10 @@ def info(all_=False, targets=False, subprojects=False):
     import cbob.project
     cbob.project.get_project().info(all_, targets, subprojects)
 
-def show(target=None, all_=False, sources=False, dependencies=False):
+def show(target=None, all_=False, sources=False, dependencies=False, plugins=False):
     import cbob.target
     current_target = cbob.target.get_target(target)
-    current_target.show(all_, sources, dependencies)
+    current_target.show(all_, sources, dependencies, plugins)
 
 def build(target=None, jobs=None, oneshot=None, keep_going=None):
     import cbob.target
@@ -42,18 +42,27 @@ def configure(target=None, auto=None, force=None, compiler=None, linker=None, bi
     current_target = cbob.target.get_target(target)
     current_target.configure(auto, force, compiler, linker, bindir)
 
-def subadd(projects):
+def subprojects_add(projects):
     import cbob.project
-    cbob.project.get_project().add_subprojects(projects)
+    cbob.project.get_project().subprojects_add(projects)
+
+def subprojects_remove(projects):
+    import cbob.project
+    cbob.project.get_project().subprojects_remove(projects)
 
 def clean(target=None, all_=False, objects=False, precompiled=False, bin_=False):
     import cbob.target
     current_target = cbob.target.get_target(target)
     current_target.clean(all_, objects, precompiled, bin_)
 
-def register(plugins, target=None):
+def plugins_add(plugins, target=None):
     import cbob.target
     current_target = cbob.target.get_target(target)
-    current_target.register(plugins)
+    current_target.plugins_add(plugins)
+
+def plugins_remove(plugins, target=None):
+    import cbob.target
+    current_target = cbob.target.get_target(target)
+    current_target.plugins_remove(plugins)
 
 

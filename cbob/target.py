@@ -6,7 +6,7 @@ from os.path import basename, join, islink, normpath, abspath, isdir, isfile, re
 #import pickle
 import subprocess
 
-from cbob.pathhelpers import read_symlink, expand_glob, make_rel_symlink, print_information
+from cbob.helpers import read_symlink, expand_glob, make_rel_symlink, print_information, log_summary
 from cbob.definitions import SOURCE_FILE_EXTENSIONS, HOOKS
 from cbob.node import SourceNode, HeaderNode
 
@@ -103,12 +103,12 @@ class Target(object):
                 hooks = [func for func in dir(plugin_module) if func in HOOKS]
                 for hook in hooks:
                     plugin_func = getattr(plugin_module, hook)
+                    plugin_func._filepath = abs_filename
                     if self._plugins[hook]:
                         self._plugins[hook].append(plugin_func)
                     else:
                         self._plugins[hook] = [plugin_func]
         return self._plugins
-            
 
     def add_sources(self, source_globs):
         self.run_plugins("pre_add")
@@ -129,13 +129,10 @@ class Target(object):
                 added_file_names.append(file_name)
                 make_rel_symlink(abs_file_path, symlink_path)
 
-        added_files_count = len(added_file_names)
-        if added_files_count == 0:
-            logging.warning("No files have been added to target '{}'.".format(self.name))
-        elif added_files_count == 1:
-            logging.info("File '{}' has been added to target '{}'.".format(added_file_names[0], self.name))
-        else:
-            logging.info("Files added to target '{}':\n  {}".format(self.name, "\n  ".join(added_file_names)))
+        log_summary(added_file_names,
+            "No files have been added to target '{}'.".format(self.name),
+            "File '{}' has been added to target '{}'.".format(added_file_names[0], self.name),
+            "Files added to target '{}':\n  {}".format(self.name, "\n  ".join(added_file_names)))
         self._sources = None
         self.run_plugins("post_add")
     
@@ -151,24 +148,36 @@ class Target(object):
                     continue
                 removed_file_names.append(file_name)
 
-        removed_files_count = len(removed_file_names)
-        if removed_files_count == 0:
-            logging.warning("No files have been removed from target '{}'.".format(self.name))
-        elif removed_files_count == 1:
-            logging.info("File '{}' has been removed from target '{}'.".format(removed_file_names[0], self.name))
-        else:
-            logging.info("Files removed from target '{}':\n  {}".format(self.name, "\n  ".join(removed_file_names)))
+        log_summary(removed_file_names,
+            "No files have been removed from target '{}'.".format(self.name),
+            "File '{}' has been removed from target '{}'.".format(removed_file_names[0], self.name),
+            "Files removed from target '{}':\n  {}".format(self.name, "\n  ".join(removed_file_names)))
         self._sources = None
 
 
-    def show(self, all_, sources, dependencies):
+    def show(self, all_, sources, dependencies, plugins):
         if not sources and not dependencies:
             all_ = True
         if all_ or sources:
-            print_information("Sources", self.sources)
             print()
+            print_information("Sources", self.sources)
         if all_ or dependencies:
+            print()
             print_information("Dependencies", self.dependencies)
+        if all_ or plugins:
+            print()
+            print("Plugins:")
+            if self.plugins:
+                for hookname, funcs in self.plugins.items():
+                    if not funcs:
+                        continue
+                    print(" ", hookname + ":")
+                    for func in funcs:
+                        print("   ", func._filepath)
+
+            else:
+                print("  (none)")
+            
 
     def depend_on(self, dependencies):
         import cbob.project
@@ -189,27 +198,41 @@ class Target(object):
             make_rel_symlink(dep_path, dep_symlink)
         self._dependencies = None
 
-    def register(self, plugins):
+    def plugins_add(self, plugins):
         plugins_dir = join(self.path, "plugins")
         added_plugins = []
         for file_list in expand_glob(plugins):
             for file_name, abs_file_path, symlink_path in self.project.iter_file_list(file_list, plugins_dir):
-                if abs_file_path in self.plugins:
-                    logger.warning("'{}' is already a plugin of target '{}'.".format(plugin, self.name))
+                if islink(symlink_path):
+                    logging.debug("File '{}' is already a plugin of target '{}'.".format(file_name, self.name))
                     continue
                 added_plugins.append(file_name)
                 make_rel_symlink(abs_file_path, symlink_path)
 
-        added_plugins_count = len(added_plugins)
-        if added_plugins_count == 0:
-            logging.warning("No plugins has been registered for target '{}'.".format(self.name))
-        elif added_plugins_count == 1:
-            logging.info("Plugin '{}' has been registered for target '{}'.".format(added_plugins[0], self.name))
-        else:
-            logging.info("Plugins registered for target '{}':\n  {}".format(self.name, "\n  ".join(added_plugins)))
-
+        log_summary(added_plugins,
+            "No plugins has been registered for target '{}'.".format(self.name),
+            "Plugin '{}' has been registered for target '{}'.".format(added_plugins[0], self.name),
+            "Plugins registered for target '{}':\n  {}".format(self.name, "\n  ".join(added_plugins)))
         self._plugins = None
         
+    def plugins_remove(self, plugins):
+        plugins_dir = join(self.path, "plugins")
+        removed_plugins = []
+
+        for file_list in expand_glob(plugins):
+            for file_name, abs_file_path, symlink_path in self.project.iter_file_list(file_list, plugins_dir):
+                try:
+                    os.unlink(symlink_path)
+                except OSError:
+                    logging.debug("File '{}' is not a plugin of target '{}'.".format(file_name, self.name))
+                    continue
+                removed_plugins.append(file_name) 
+
+        log_summary(removed_plugins,
+            "No plugins has been unregistered from target '{}'.".format(self.name),
+            "Plugin '{}' has been unregistered from target '{}'.".format(removed_plugins[0], self.name),
+            "Plugins unregistered from target '{}':\n  {}".format(self.name, "\n  ".join(removed_plugins)))
+        self._plugins = None
 
     def build(self, jobs, oneshot, keep_going):
         for dep_name, dep_target in self.dependencies.items():

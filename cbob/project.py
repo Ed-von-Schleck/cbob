@@ -2,7 +2,7 @@ import logging
 import os
 from os.path import normpath, join, isdir, dirname, basename, abspath, islink
 
-from cbob.pathhelpers import read_symlink, expand_glob, make_rel_symlink, print_information
+from cbob.helpers import read_symlink, expand_glob, make_rel_symlink, print_information, log_summary
 
 class Project(object):
     def __init__(self, root_path=None):
@@ -100,7 +100,7 @@ class Project(object):
             abs_file_path = os.path.abspath(file_name)
             yield (file_name, abs_file_path, symlink_path)
 
-    def add_subprojects(self, raw_subproject_paths):
+    def subprojects_add(self, raw_subproject_paths):
         subprojects_path = join(self.root_path, ".cbob", "subprojects")
         added_subproject_names = []
         for subproject_list in expand_glob(raw_subproject_paths):
@@ -113,14 +113,15 @@ class Project(object):
                     continue
                 added_subproject_names.append(dir_name)
                 make_rel_symlink(abs_dir_path, symlink_path)
-        added_subprojects_count = len(added_subproject_names)
-        if added_subprojects_count == 0:
-            logging.warning("No subprojects have been added.")
-        elif added_subprojects_count == 1:
-            logging.info("Project '{}' has been added as a subproject.".format(added_subproject_names[0]))
-        else:
-            logging.info("Projects added as subprojects '{}':\n  {}".format(self.name, "\n  ".join(added_subproject_names)))
+
+        log_summary(added_subproject_names,
+                "No subproject have been added.",
+                "Project '{}' has been added as a subproject.".format(added_subproject_names[0]),
+                "Projects added as subprojects:\n  {}".format("\n  ".join(added_subproject_names)))
         self._subprojects = None
+
+    def subprojects_remove(self, raw_subproject_paths):
+        raise NotImplementedError()
 
     def get_target(self, target_name=None):
         if target_name is None:
