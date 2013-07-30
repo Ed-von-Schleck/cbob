@@ -1,8 +1,8 @@
 import logging
 import os
-from os.path import normpath, join, isdir, dirname, basename, abspath, islink, commonprefix
+from os.path import normpath, join, isdir, dirname, basename, abspath, islink, commonprefix, relpath, expanduser
 
-from cbob.helpers import read_symlink, expand_glob, make_rel_symlink, print_information, log_summary
+from cbob.helpers import read_symlink, make_rel_symlink, print_information, log_summary
 
 class Project(object):
     def __init__(self, root_path=None):
@@ -10,7 +10,7 @@ class Project(object):
             path = os.getcwd()
             oldpath = ""
             while path != oldpath:
-                if isdir(os.path.join(path, ".cbob")):
+                if isdir(join(path, ".cbob")):
                     self.root_path = path
                     break
                 oldpath = path
@@ -75,30 +75,33 @@ class Project(object):
         if not targets and not subprojects:
             all_ = True
         if all_ or targets:
+            print()
+            print("Targets:")
             if self.targets:
-                targets = self.targets
-                default_target_name = targets["_default"].name
-                del targets["_default"]
-                for target_name in targets:
-                    print(" ", target_name, "(default)" if target_name == default_target_name else "")
+                default_target_name = self.targets["_default"].name
+                for target_name in self.targets:
+                    if target_name != "_default":
+                        print(" ", target_name, "(default)" if target_name == default_target_name else "")
             else:
                 print("  (none)")
-            print()
         if all_ or subprojects:
+            print()
             print_information("Subprojects", self.subprojects)
 
     def mangle_path(self, path):
-        abs_actual_file_path = os.path.abspath(path)
-        norm_actual_file_path = os.path.normpath(os.path.relpath(abs_actual_file_path, self.root_path))
-        return norm_actual_file_path.replace(os.sep, "_")
+        return normpath(relpath(abspath(path), self.root_path)).replace(os.sep, "_")
 
-    def iter_file_list(self, file_list, directory):
-        for file_name in file_list:
-            mangled_file_name = self.mangle_path(file_name)
-            symlink_path = join(directory, mangled_file_name)
-
-            abs_file_path = os.path.abspath(file_name)
-            yield (file_name, abs_file_path, symlink_path)
+    def _iter_globs(self, globs, directory):
+        import glob
+        for raw_glob in globs:
+            file_list = glob.glob(expanduser(raw_glob))
+            if not file_list:
+                logging.warning("No match for '{}'.".format(raw_glob))
+                continue
+            for file_name in file_list:
+                symlink_path = join(directory, self.mangle_path(file_name))
+                abs_file_path = abspath(file_name)
+                yield (file_name, abs_file_path, symlink_path)
 
     def _subproject_check(self, dir_name, abs_dir_path, symlink_path):
         if not isdir(join(abs_dir_path, ".cbob")):
@@ -127,41 +130,39 @@ class Project(object):
 
     def _add_something_from_globs(self, dir_path, globs, thing, checks=None, target_name=None):
         added_things = []
-        for file_list in expand_glob(globs):
-            for file_name, abs_dir_path, symlink_path in self.iter_file_list(file_list, dir_path):
-                if islink(symlink_path):
-                    logging.debug("'{}' is already a {}.".format(file_name, thing))
+        for file_name, abs_file_path, symlink_path in self._iter_globs(globs, dir_path):
+            if islink(symlink_path):
+                logging.debug("'{}' is already a {}.".format(file_name, thing))
+                continue
+            if commonprefix((abs_file_path, self.root_path)) != self.root_path:
+                logging.warning("{} '{}' is not in a (sub)-direcory of the project.".format(thing.capitalize(), file_name))
+                continue
+            if checks is not None:
+                fail = False
+                for check in checks:
+                    if not check(file_name, abs_file_path, symlink_path):
+                        fail = True
+                        break
+                if fail:
                     continue
-                if commonprefix((abs_dir_path, self.root_path)) != self.root_path:
-                    logging.warning("{} '{}' is not in a (sub)-direcory of the project.".format(thing.capitalize(), file_name))
-                    continue
-                if checks is not None:
-                    fail = False
-                    for check in checks:
-                        if not check(file_name, abs_dir_path, symlink_path):
-                            fail = True
-                            break
-                    if fail:
-                        continue
-                added_things.append(file_name)
-                make_rel_symlink(abs_dir_path, symlink_path)
+            added_things.append(file_name)
+            make_rel_symlink(abs_file_path, symlink_path)
 
         log_summary(added_things, thing, added=True, target_name=target_name)
         
 
     def _remove_something_from_globs(self, dir_path, globs, thing, target_name=None):
         removed_things = []
-        for file_list in expand_glob(globs):
-            for file_name, rel_file_path, symlink_path in self.iter_file_list(file_list, dir_path):
-                try:
-                    os.unlink(symlink_path)
-                except OSError:
-                    if target_name is not None:
-                        logging.debug("{}' is not a {} of target '{}'.".format(file_name, thing, target_name))
-                    else:
-                        logging.debug("{}' is not a {}.".format(file_name, thing))
-                    continue
-                removed_things.append(file_name)
+        for file_name, abs_file_path, symlink_path in self._iter_globs(globs, dir_path):
+            try:
+                os.unlink(symlink_path)
+            except OSError:
+                if target_name is not None:
+                    logging.debug("{}' is not a {} of target '{}'.".format(file_name, thing, target_name))
+                else:
+                    logging.debug("{}' is not a {}.".format(file_name, thing))
+                continue
+            removed_things.append(file_name)
         
         log_summary(removed_things, thing, added=False, target_name=target_name)
 
@@ -183,12 +184,3 @@ def get_project(subproject_names=None):
 
     return current_project
 
-def init():
-    cbob_path = abspath(".cbob") + os.sep
-    is_initialized = isdir(".cbob")
-    if is_initialized:
-        from cbob.error import CbobError
-        raise CbobError("cbob is already initialized in '{}'".format(cbob_path))
-    os.makedirs(".cbob/targets")
-    os.makedirs(".cbob/subprojects")
-    logging.info("initialized cbob in '{}'".format(cbob_path))

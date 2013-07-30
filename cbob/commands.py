@@ -5,8 +5,8 @@ def new(name):
     current_project.new_target(target_name)
 
 def init():
-    import cbob.project
-    cbob.project.init()
+    import cbob.init
+    cbob.init.init()
 
 def add(files, target=None):
     import cbob.target

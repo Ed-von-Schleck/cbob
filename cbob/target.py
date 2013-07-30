@@ -1,11 +1,11 @@
-from functools import partial
+from contextlib import contextmanager
 import logging
-from itertools import zip_longest
+from functools import partial
 import os
-from os.path import basename, join, islink, normpath, abspath, isdir, isfile, relpath, commonprefix, expandvars, split, splitext
+from os.path import basename, join, islink, normpath, isdir, isfile, expandvars, split, splitext
 import subprocess
 
-from cbob.helpers import read_symlink, expand_glob, make_rel_symlink, print_information, log_summary
+from cbob.helpers import read_symlink, make_rel_symlink, print_information, log_summary
 from cbob.definitions import SOURCE_FILE_EXTENSIONS, HOOKS
 from cbob.node import SourceNode, HeaderNode
 
@@ -34,48 +34,29 @@ class Target(object):
     @property
     def dependencies(self):
         if self._dependencies is None:
-            dependencies_dir = join(self.path, "dependencies")
-            if not isdir(dependencies_dir):
-                from cbob.error import NotConfiguredError
-                raise NotConfiguredError(self.name)
-
-            import cbob.project
-            raw_dep_names = os.listdir(dependencies_dir)
-            self._dependencies = {}
-            for raw_dep_name in raw_dep_names:
-                *subproject_names, dep_name = raw_dep_name.split(".")
-                _project = cbob.project.get_project(subproject_names)
-                self._dependencies[raw_dep_name] = _project.targets[dep_name]
+            deps_dir = join(self.path, "dependencies")
+            self._dependencies = {raw_dep_name: get_target(raw_dep_name) for raw_dep_name in os.listdir(deps_dir)}
         return self._dependencies
 
     @property
     def compiler(self):
         if self._compiler is None:
-            try:
+            with assume_configured():
                 self._compiler = os.readlink(join(self.path, "compiler"))
-            except OSError as e:
-                from cbob.error import NotConfiguredError
-                raise NotConfiguredError(self.name) from e
         return self._compiler
 
     @property
     def linker(self):
         if self._linker is None:
-            try:
+            with assume_configured():
                 self._linker = os.readlink(join(self.path, "linker"))
-            except OSError as e:
-                from cbob.error import NotConfiguredError
-                raise NotConfiguredError(self.name) from e
         return self._linker
 
     @property
     def bin_dir(self):
         if self._bin_dir is None:
-            try:
+            with assume_configured():
                 self._bin_dir= os.readlink(join(self.path, "bin_dir"))
-            except OSError as e:
-                from cbob.error import NotConfiguredError
-                raise NotConfiguredError(self.name) from e
         return self._bin_dir
 
     @property
@@ -89,13 +70,10 @@ class Target(object):
         if self._plugins is None:
             import imp
             plugins_dir = join(self.path, "plugins")
-            self._plugins = dict.fromkeys(HOOKS, [])
-            if not isdir(plugins_dir):
-                from cbob.error import NotConfiguredError
-                raise NotConfiguredError(self.name) from e
+            self._plugins = {hook: [] for hook in HOOKS}
             for filename in os.listdir(plugins_dir):
                 abs_filename = read_symlink(filename, plugins_dir)
-                path, filename = os.path.split(abs_filename)
+                path, filename = split(abs_filename)
                 name, ext = splitext(filename)
                 fp, fn, desc = imp.find_module(name, [path])
                 plugin_module = imp.load_module(name, fp, fn, desc)
@@ -103,10 +81,7 @@ class Target(object):
                 for hook in hooks:
                     plugin_func = getattr(plugin_module, hook)
                     plugin_func._filepath = abs_filename
-                    if self._plugins[hook]:
-                        self._plugins[hook].append(plugin_func)
-                    else:
-                        self._plugins[hook] = [plugin_func]
+                    self._plugins[hook].append(plugin_func)
         return self._plugins
 
     def _source_filetype_check(self, file_name, abs_file_path, symlink_path):
@@ -140,18 +115,15 @@ class Target(object):
             print("Plugins:")
             if self.plugins:
                 for hookname, funcs in self.plugins.items():
-                    if not funcs:
-                        continue
-                    print(" ", hookname + ":")
-                    for func in funcs:
-                        print("   ", func._filepath)
-
+                    if funcs:
+                        print(" ", hookname + ":")
+                        for func in funcs:
+                            print("   ", func._filepath)
             else:
                 print("  (none)")
             
 
     def dependencies_add(self, dependencies):
-        import cbob.project
         dependencies_dir = join(self.path, "dependencies")
         added_deps = []
         for raw_dep in dependencies:
@@ -180,6 +152,7 @@ class Target(object):
         self._build_self(jobs, oneshot, keep_going)
 
     def _build_self(self, jobs, oneshot, keep_going):
+        from multiprocessing.pool import ThreadPool
         self.run_plugins("pre_build")
         # Bail out if there are no sources -
         # there is no need for a virtual target to be fully configured.
@@ -201,7 +174,6 @@ class Target(object):
 
         #TODO: Profile if a `ProcessPool` might be better (that's doubtful, though).
         #TODO: Investigate if the `concurrent.future` package might offer some advantage.
-        from multiprocessing.pool import ThreadPool
         pool = ThreadPool(jobs)
         
         logging.info("calculating dependencies ...")
@@ -286,6 +258,7 @@ class Target(object):
         self.run_plugins("post_build")
 
     def _calculate_dependencies(self, oneshot, pool):
+        from itertools import zip_longest
         source_node_index = {}
         header_node_index = {}
         # This is somewhat straight-forward if you have ever written a stream-parser (like SAX) in that we maintain a stack
@@ -484,7 +457,7 @@ def _get_dep_info(file_path, gcc_path):
     # indicates the level of nesting. Also, there are lots of lines of no interest to us.
     # Let's ignore them.
     raw_deps = (line.partition(" ") for line in err.split("\n") if line and line[0] == ".")
-    deps = [(len(dots), os.path.normpath(rest)) for (dots, sep, rest) in raw_deps]
+    deps = [(len(dots), normpath(rest)) for (dots, sep, rest) in raw_deps]
     return file_path, deps
 
 def _compile(source, compiler_path, c_switch=False, include_pch=False):
@@ -509,3 +482,11 @@ def get_target(raw_target_name=None):
     *subproject_names, target_name = raw_target_name.split(".")
     current_project = cbob.project.get_project(subproject_names)
     return current_project.get_target(target_name)
+
+@contextmanager
+def assume_configured():
+    try:
+        yield
+    except OSError as e:
+        from cbob.error import NotConfiguredError
+        raise NotConfiguredError(self.name) from e

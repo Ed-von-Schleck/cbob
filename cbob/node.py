@@ -1,7 +1,5 @@
 from os.path import getmtime, splitext, join
 
-import cbob.project as project
-
 class BaseNode(object):
     __slots__ = ("path", "mtime", "dependencies")
     def __init__(self, path):
@@ -14,7 +12,7 @@ class SourceNode(BaseNode):
     def __init__(self, path, target):
         super().__init__(path)
         self.target = target
-        _project = project.get_project()
+        _project = target.project
         objects_dir = join(target.path, "objects")
         precompiled_headers_dir = join(target.path, "precompiled_headers")
         mangled_path_base = splitext(_project.mangle_path(path))[0]
