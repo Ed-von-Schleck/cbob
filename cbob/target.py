@@ -3,7 +3,6 @@ import logging
 from itertools import zip_longest
 import os
 from os.path import basename, join, islink, normpath, abspath, isdir, isfile, relpath, commonprefix, expandvars, split, splitext
-#import pickle
 import subprocess
 
 from cbob.helpers import read_symlink, expand_glob, make_rel_symlink, print_information, log_summary
@@ -110,50 +109,22 @@ class Target(object):
                         self._plugins[hook] = [plugin_func]
         return self._plugins
 
+    def _source_filetype_check(self, file_name, abs_file_path, symlink_path):
+        if not splitext(file_name)[1] in SOURCE_FILE_EXTENSIONS:
+            logging.warning("'{}' does not seem to be a C/C++ source file (ending is not one of {}).".format(file_name, ", ".join(SOURCE_FILE_EXTENSIONS)))
+            return False
+        return True
+
+
     def add_sources(self, source_globs):
         self.run_plugins("pre_add")
-        sources_dir = join(self.path, "sources")
-        added_file_names = []
-        for file_list in expand_glob(source_globs):
-            for file_name, abs_file_path, symlink_path in self.project.iter_file_list(file_list, sources_dir):
-                if not splitext(file_name)[1] in SOURCE_FILE_EXTENSIONS:
-                    logging.warning("'{}' does not seem to be a C/C++ source file (ending is not one of {}).".format(file_name, ", ".join(SOURCE_FILE_EXTENSIONS)))
-                    continue
-                if islink(symlink_path):
-                    logging.debug("File '{}' is already a source file of target '{}'.".format(file_name, self.name))
-                    continue
-                root_path = self.project.root_path
-                if commonprefix((abs_file_path, root_path)) != root_path:
-                    logging.warning("File '{}' is not in a (sub)-direcory of the project.".format(file_name))
-                    continue
-                added_file_names.append(file_name)
-                make_rel_symlink(abs_file_path, symlink_path)
-
-        log_summary(added_file_names,
-            "No files have been added to target '{}'.".format(self.name),
-            "File '{}' has been added to target '{}'.".format(added_file_names[0], self.name),
-            "Files added to target '{}':\n  {}".format(self.name, "\n  ".join(added_file_names)))
+        self._add_something_from_globs("sources", source_globs, "file", [self._source_filetype_check])
         self._sources = None
         self.run_plugins("post_add")
     
     def remove_sources(self, source_globs):
-        sources_dir = join(self.path, "sources")
-        removed_file_names = []
-        for file_list in expand_glob(source_globs):
-            for file_name, rel_file_path, symlink_path in self.project.iter_file_list(file_list, sources_dir):
-                try:
-                    os.unlink(symlink_path)
-                except OSError:
-                    logging.debug("File '{}' not a source file of target '{}'.".format(file_name, self.name))
-                    continue
-                removed_file_names.append(file_name)
-
-        log_summary(removed_file_names,
-            "No files have been removed from target '{}'.".format(self.name),
-            "File '{}' has been removed from target '{}'.".format(removed_file_names[0], self.name),
-            "Files removed from target '{}':\n  {}".format(self.name, "\n  ".join(removed_file_names)))
+        self._remove_something_from_globs("sources", source_globs, "file")
         self._sources = None
-
 
     def show(self, all_, sources, dependencies, plugins):
         if not sources and not dependencies:
@@ -179,59 +150,26 @@ class Target(object):
                 print("  (none)")
             
 
-    def depend_on(self, dependencies):
+    def dependencies_add(self, dependencies):
         import cbob.project
         dependencies_dir = join(self.path, "dependencies")
+        added_deps = []
         for raw_dep in dependencies:
             if raw_dep in self.dependencies:
                 logging.warning("Target '{}' is already a dependency of target '{}'.".format(raw_dep, self.name))
                 continue
-            *subprojects, dep_name = raw_dep.split(".")
-            dep_project = cbob.project.get_project(subprojects)
-            targets_dir = join(dep_project.root_path, ".cbob", "targets")
-
-            dep_path = join(targets_dir, dep_name)
-            dep_symlink = join(dependencies_dir, raw_dep)
-            if not isdir(dep_path):
-                from cbob.error import TargetDoesntExistError
-                raise TargetDoesntExistError(dep)
-            make_rel_symlink(dep_path, dep_symlink)
+            dep_target = get_target(raw_dep)
+            make_rel_symlink(dep_target.path, join(dependencies_dir, raw_dep))
+            added_deps.append(raw_dep)
+        log_summary(added_deps, "dependency", added=True, target_name=self.name, plural="dependencies")
         self._dependencies = None
 
-    def plugins_add(self, plugins):
-        plugins_dir = join(self.path, "plugins")
-        added_plugins = []
-        for file_list in expand_glob(plugins):
-            for file_name, abs_file_path, symlink_path in self.project.iter_file_list(file_list, plugins_dir):
-                if islink(symlink_path):
-                    logging.debug("File '{}' is already a plugin of target '{}'.".format(file_name, self.name))
-                    continue
-                added_plugins.append(file_name)
-                make_rel_symlink(abs_file_path, symlink_path)
-
-        log_summary(added_plugins,
-            "No plugins has been registered for target '{}'.".format(self.name),
-            "Plugin '{}' has been registered for target '{}'.".format(added_plugins[0], self.name),
-            "Plugins registered for target '{}':\n  {}".format(self.name, "\n  ".join(added_plugins)))
+    def plugins_add(self, plugin_globs):
+        self._add_something_from_globs("plugins", plugin_globs, "plugin")
         self._plugins = None
         
-    def plugins_remove(self, plugins):
-        plugins_dir = join(self.path, "plugins")
-        removed_plugins = []
-
-        for file_list in expand_glob(plugins):
-            for file_name, abs_file_path, symlink_path in self.project.iter_file_list(file_list, plugins_dir):
-                try:
-                    os.unlink(symlink_path)
-                except OSError:
-                    logging.debug("File '{}' is not a plugin of target '{}'.".format(file_name, self.name))
-                    continue
-                removed_plugins.append(file_name) 
-
-        log_summary(removed_plugins,
-            "No plugins has been unregistered from target '{}'.".format(self.name),
-            "Plugin '{}' has been unregistered from target '{}'.".format(removed_plugins[0], self.name),
-            "Plugins unregistered from target '{}':\n  {}".format(self.name, "\n  ".join(removed_plugins)))
+    def plugins_remove(self, plugin_globs):
+        self._remove_something_from_globs("plugins", plugin_globs, "plugin")
         self._plugins = None
 
     def build(self, jobs, oneshot, keep_going):
@@ -243,9 +181,6 @@ class Target(object):
 
     def _build_self(self, jobs, oneshot, keep_going):
         self.run_plugins("pre_build")
-        #for plugin in self.plugins.values():
-        #    if hasattr(plugin, "pre_build"):
-        #        plugin.pre_build(self)
         # Bail out if there are no sources -
         # there is no need for a virtual target to be fully configured.
         sources = self.sources
@@ -349,21 +284,10 @@ class Target(object):
         else:
             logging.info("Nothing to do.")
         self.run_plugins("post_build")
-        #for plugin in self.plugins.values():
-        #    if hasattr(plugin, "post_build"):
-        #        plugin.pre_build(self)
 
     def _calculate_dependencies(self, oneshot, pool):
         source_node_index = {}
         header_node_index = {}
-        #depgraph_file_name = join(self.path, "depgrap")
-        #try:
-        #    with open(depgraph_file_name, "rb") as depgraph_file:
-        #        old_source_node_index, old_header_node_index = pickle.load(depgraph_file)
-        #except IOError:
-        #    old_source_node_index = {}
-        #    old_header_node_index = {}
-
         # This is somewhat straight-forward if you have ever written a stream-parser (like SAX) in that we maintain a stack
         # of where we currently sit in the tree.
         # It adds a twist, though, in that we save references to processed nodes in a set. It may be a bit unintuitive that
@@ -423,9 +347,6 @@ class Target(object):
                 except OSError:
                     # It's OK if it didn't work; it just means that it wasn't there in the first place
                     pass
-        #with open(depgraph_file_name, "wb") as depgraph_file:
-        #    depgraph = (source_node_index, header_node_index)
-        #    pickle.dump(depgraph, depgraph_file, pickle.HIGHEST_PROTOCOL)
         return source_node_index.values()
 
     def _guess_target_language(self):
@@ -538,7 +459,11 @@ class Target(object):
             logging.debug("running plugin function '{}'".format(func))
             func(self)
 
+    def _remove_something_from_globs(self, dirname, globs, thing):
+        self.project._remove_something_from_globs(join(self.path, dirname), globs, thing, self.name)
 
+    def _add_something_from_globs(self, dirname, globs, thing, checks=None):
+        self.project._add_something_from_globs(join(self.path, dirname), globs, thing, checks=checks, target_name=self.name)
 
 def _get_dep_info(file_path, gcc_path):
     # The options used:

@@ -32,10 +32,10 @@ def build(target=None, jobs=None, oneshot=None, keep_going=None):
     current_target = cbob.target.get_target(target)
     current_target.build(jobs, oneshot, keep_going)
 
-def depend(target=None, dependencies=None):
+def dependencies_add(target=None, dependencies=None):
     import cbob.target
     current_target = cbob.target.get_target(target)
-    current_target.depend_on(dependencies)
+    current_target.dependencies_add(dependencies)
 
 def configure(target=None, auto=None, force=None, compiler=None, linker=None, bindir=None):
     import cbob.target

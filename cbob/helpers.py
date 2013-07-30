@@ -32,11 +32,17 @@ def print_information(name, some_list):
     else:
         print("  (none)")
 
-def log_summary(changed_items, zero_message, one_message, many_message):
+def log_summary(changed_items, thing, added, target_name=None, plural=None):
     changed_items_count = len(changed_items)
+    added_or_removed = "added" if added else "removed"
+    to_or_from = "to" if added else "from"
+    tail = " {} target '{}'".format(to_or_from, target_name) if target_name is not None else ""
+    if plural is None:
+        plural = "{}s".format(thing)
     if changed_items_count == 0:
-        logging.warning(zero_message)
+        logging.warning("No {}s have been {}{}.".format(thing, added_or_removed, tail))
     elif changed_items_count == 1:
-        logging.info(one_message)
+        logging.info("{} '{}' has been {}{}.".format(thing.capitalize(), changed_items[0], added_or_removed, tail))
     else:
-        logging.info(many_message)
+        logging.info("{}s {}{}:\n  {}".format(thing.capitalize(), added_or_removed, tail, "\n  ".join(changed_items)))
+

@@ -233,8 +233,8 @@ class TestCbobCLI(unittest.TestCase):
         self.assertEqual(self._call_cmd("new", "all"), 0)
 
     def test_h2_depend_child(self):
-        self.assertEqual(self._call_cmd("depend", "--target", "all", "hello"), 0)
-        self.assertNotEqual(self._call_cmd("depend", "--target", "all", "good-bye", silent=True), 0)
+        self.assertEqual(self._call_cmd("dependencies", "add", "--target", "all", "hello"), 0)
+        self.assertNotEqual(self._call_cmd("dependencies", "add", "--target", "all", "good-bye", silent=True), 0)
 
     def test_h4_show_depend(self):
         out_set = self._get_words_cmd("show", "--target", "all", "--dependencies")
@@ -249,8 +249,6 @@ class TestCbobCLI(unittest.TestCase):
         # it will instead issue a warning
         err_set = self._get_err_words_cmd("subprojects", "add", "subtest")
         self.assertNotEqual(err_set, set())
-
-    def test_i2_show_subproject_not(self):
         out_set = self._get_words_cmd("info", "--subprojects")
         self.assertFalse(set(("subtest",)) < out_set)
 
@@ -260,9 +258,7 @@ class TestCbobCLI(unittest.TestCase):
         os.chdir(self.project_path)
 
     def test_i4_subadd_for_real(self):
-        self.assertEqual(self._call_cmd("subprojects", "add", "subtest", silent=True), 0)
-
-    def test_i5_show_subproject(self):
+        self.assertEqual(self._call_cmd("subprojects", "add", "subtest"), 0)
         out_set = self._get_words_cmd("info", "--subprojects")
         self.assertTrue(set(("subtest",)) < out_set)
 
@@ -278,7 +274,6 @@ class TestCbobCLI(unittest.TestCase):
     def test_j1_sub_add(self):
         self.assertEqual(self._call_cmd("add", "--target", "subtest.subhello", *self.files["subtest"].values()), 0)
 
-    def test_j2_sub_add_wrong(self):
         err_set = self._get_err_words_cmd("add", "--target", "subtest.subhello", *self.files["src"].values())
         self.assertNotEqual(err_set, set())
 
@@ -304,7 +299,7 @@ class TestCbobCLI(unittest.TestCase):
         self.assertFalse(isfile(join(self.sub_dir, "subhello")))
 
     def test_l1_sub_depend(self):
-        self.assertEqual(self._call_cmd("depend", "--target", "all", "subtest.subhello"), 0)
+        self.assertEqual(self._call_cmd("dependencies", "add", "--target", "all", "subtest.subhello"), 0)
 
     def test_l2_build(self):
         self.assertEqual(self._call_cmd("build", "--target", "all"), 0)
@@ -313,6 +308,13 @@ class TestCbobCLI(unittest.TestCase):
         cmd = (join(self.sub_dir, "subhello"))
         out = subprocess.check_output(cmd, universal_newlines=True).strip()
         self.assertEqual(out, "Hello, Subworld")
+
+    def test_l5_remove_sub(self):
+        self.assertEqual(self._call_cmd("subprojects", "remove", self.sub_dir), 0)
+        # cbob should complain if the subproject doesn't exist
+        err_set = self._get_err_words_cmd("subprojects", "remove", "subtest")
+        self.assertNotEqual(err_set, set())
+
 
     def test_m1_new_error(self):
         self.assertEqual(self._call_cmd("new", "error"), 0)

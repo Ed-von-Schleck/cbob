@@ -1,6 +1,6 @@
 import logging
 import os
-from os.path import normpath, join, isdir, dirname, basename, abspath, islink
+from os.path import normpath, join, isdir, dirname, basename, abspath, islink, commonprefix
 
 from cbob.helpers import read_symlink, expand_glob, make_rel_symlink, print_information, log_summary
 
@@ -100,28 +100,21 @@ class Project(object):
             abs_file_path = os.path.abspath(file_name)
             yield (file_name, abs_file_path, symlink_path)
 
-    def subprojects_add(self, raw_subproject_paths):
-        subprojects_path = join(self.root_path, ".cbob", "subprojects")
-        added_subproject_names = []
-        for subproject_list in expand_glob(raw_subproject_paths):
-            for dir_name, abs_dir_path, symlink_path in self.iter_file_list(subproject_list, subprojects_path):
-                if dir_name in self.subprojects:
-                    logging.debug("Project '{}' is already a subproject.".format(dir_name))
-                    continue
-                if not isdir(join(abs_dir_path, ".cbob")):
-                    logging.warning("Project '{}' is not really a project (not initialized).".format(dir_name))
-                    continue
-                added_subproject_names.append(dir_name)
-                make_rel_symlink(abs_dir_path, symlink_path)
+    def _subproject_check(self, dir_name, abs_dir_path, symlink_path):
+        if not isdir(join(abs_dir_path, ".cbob")):
+            logging.warning("Project '{}' is not really a project (not initialized).".format(dir_name))
+            return False
+        return True
 
-        log_summary(added_subproject_names,
-                "No subproject have been added.",
-                "Project '{}' has been added as a subproject.".format(added_subproject_names[0]),
-                "Projects added as subprojects:\n  {}".format("\n  ".join(added_subproject_names)))
+    def subprojects_add(self, subproject_globs):
+        subprojects_path = join(self.root_path, ".cbob", "subprojects")
+        self._add_something_from_globs(subprojects_path, subproject_globs, "subproject", [self._subproject_check])
         self._subprojects = None
 
-    def subprojects_remove(self, raw_subproject_paths):
-        raise NotImplementedError()
+    def subprojects_remove(self, subproject_globs):
+        dir_path = join(self.root_path, ".cbob", "subprojects")
+        self._remove_something_from_globs(dir_path, subproject_globs, "subproject")
+        self._subprojects = None
 
     def get_target(self, target_name=None):
         if target_name is None:
@@ -131,6 +124,46 @@ class Project(object):
         except KeyError as e:
             from cbob.error import TargetDoesntExistError
             raise TargetDoesntExistError(target_name) from e
+
+    def _add_something_from_globs(self, dir_path, globs, thing, checks=None, target_name=None):
+        added_things = []
+        for file_list in expand_glob(globs):
+            for file_name, abs_dir_path, symlink_path in self.iter_file_list(file_list, dir_path):
+                if islink(symlink_path):
+                    logging.debug("'{}' is already a {}.".format(file_name, thing))
+                    continue
+                if commonprefix((abs_dir_path, self.root_path)) != self.root_path:
+                    logging.warning("{} '{}' is not in a (sub)-direcory of the project.".format(thing.capitalize(), file_name))
+                    continue
+                if checks is not None:
+                    fail = False
+                    for check in checks:
+                        if not check(file_name, abs_dir_path, symlink_path):
+                            fail = True
+                            break
+                    if fail:
+                        continue
+                added_things.append(file_name)
+                make_rel_symlink(abs_dir_path, symlink_path)
+
+        log_summary(added_things, thing, added=True, target_name=target_name)
+        
+
+    def _remove_something_from_globs(self, dir_path, globs, thing, target_name=None):
+        removed_things = []
+        for file_list in expand_glob(globs):
+            for file_name, rel_file_path, symlink_path in self.iter_file_list(file_list, dir_path):
+                try:
+                    os.unlink(symlink_path)
+                except OSError:
+                    if target_name is not None:
+                        logging.debug("{}' is not a {} of target '{}'.".format(file_name, thing, target_name))
+                    else:
+                        logging.debug("{}' is not a {}.".format(file_name, thing))
+                    continue
+                removed_things.append(file_name)
+        
+        log_summary(removed_things, thing, added=False, target_name=target_name)
 
 _project = None
 
