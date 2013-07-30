@@ -40,21 +40,21 @@ cbob new <target-name>
 
 Building a target means building all source files that have been added to it. You can use wildcards like `src/*.c`, but it will *not* magically add files you add to `src/` after that (it does not track the directory, only files). *cbob* does not accept non-standard file endings. There's no need to add header files or other dependencies. To add one or more files, do
 ```bash
-cbob add <target-name> <path-to-source-file> [<path-to-other-source-file> ...]
+cbob add --target <target-name> <path-to-source-file> [<path-to-other-source-file> ...]
 ```
 
 #### Configuring a target ####
 
 At the very least, a compiler need to be chosen. There is more, though: Do `cbob configure --help` to get a list of all configuration options. To try and let cbob figure it all out for you, do
 ```bash
-cbob configure --auto <target-name>
+cbob configure --auto --target <target-name>
 ```
 
 #### Building a target ####
 
 Simply do
 ```bash
-cbob build <target-name>
+cbob build --target <target-name>
 ```
 and you will end up with a binary in the directory you configured for your output (if you chose to auto-configure it's either `bin/` if it's there or the project's root). *cbob* will automatically use as many processes as there are cpus (or you can specify the number manually with `-j`/`--jobs`).
 

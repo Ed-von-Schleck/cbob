@@ -6,8 +6,8 @@ from os.path import basename, join, islink, normpath, abspath, isdir, isfile, re
 #import pickle
 import subprocess
 
-from cbob.pathhelpers import read_symlink, mangle_path, expand_glob, make_rel_symlink, print_information
-from cbob.definitions import SOURCE_FILE_EXTENSIONS
+from cbob.pathhelpers import read_symlink, expand_glob, make_rel_symlink, print_information
+from cbob.definitions import SOURCE_FILE_EXTENSIONS, HOOKS
 from cbob.node import SourceNode, HeaderNode
 
 class Target(object):
@@ -38,7 +38,7 @@ class Target(object):
             dependencies_dir = join(self.path, "dependencies")
             if not isdir(dependencies_dir):
                 from cbob.error import NotConfiguredError
-                raise NotConfiguredError(self.name) from e
+                raise NotConfiguredError(self.name)
 
             import cbob.project
             raw_dep_names = os.listdir(dependencies_dir)
@@ -90,7 +90,7 @@ class Target(object):
         if self._plugins is None:
             import imp
             plugins_dir = join(self.path, "plugins")
-            self._plugins = {}
+            self._plugins = dict.fromkeys(HOOKS, [])
             if not isdir(plugins_dir):
                 from cbob.error import NotConfiguredError
                 raise NotConfiguredError(self.name) from e
@@ -100,11 +100,18 @@ class Target(object):
                 name, ext = splitext(filename)
                 fp, fn, desc = imp.find_module(name, [path])
                 plugin_module = imp.load_module(name, fp, fn, desc)
-                self.plugins[abs_filename] = plugin_module
+                hooks = [func for func in dir(plugin_module) if func in HOOKS]
+                for hook in hooks:
+                    plugin_func = getattr(plugin_module, hook)
+                    if self._plugins[hook]:
+                        self._plugins[hook].append(plugin_func)
+                    else:
+                        self._plugins[hook] = [plugin_func]
         return self._plugins
             
 
     def add_sources(self, source_globs):
+        self.run_plugins("pre_add")
         sources_dir = join(self.path, "sources")
         added_file_names = []
         for file_list in expand_glob(source_globs):
@@ -130,6 +137,7 @@ class Target(object):
         else:
             logging.info("Files added to target '{}':\n  {}".format(self.name, "\n  ".join(added_file_names)))
         self._sources = None
+        self.run_plugins("post_add")
     
     def remove_sources(self, source_globs):
         sources_dir = join(self.path, "sources")
@@ -502,13 +510,11 @@ class Target(object):
             logging.info("cleaned binary file")
 
     def run_plugins(self, hookname):
-        # somewhat inefficient (optimally the plugins are indexed by the hooks
-        # they provide), but not likely to be a bottleneck
-        for plugin in self.plugins.values():
-            try:
-                getattr(plugin, hookname)(self)
-            except AttributeError:
-                pass
+        logging.debug("running '{}' plugin functions".format(hookname))
+        for func in self.plugins[hookname]:
+            logging.debug("running plugin function '{}'".format(func))
+            func(self)
+
 
 
 def _get_dep_info(file_path, gcc_path):
@@ -547,7 +553,10 @@ def _compile(source, compiler_path, c_switch=False, include_pch=False):
     process = subprocess.Popen(cmd)
     return source_path, process.wait()
 
-def get_target(raw_target_name):
+def get_target(raw_target_name=None):
+    if raw_target_name == None:
+        raw_target_name = "_default"
+
     import cbob.project
     *subproject_names, target_name = raw_target_name.split(".")
     current_project = cbob.project.get_project(subproject_names)

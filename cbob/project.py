@@ -122,7 +122,9 @@ class Project(object):
             logging.info("Projects added as subprojects '{}':\n  {}".format(self.name, "\n  ".join(added_subproject_names)))
         self._subprojects = None
 
-    def get_target(self, target_name):
+    def get_target(self, target_name=None):
+        if target_name is None:
+            target_name = "_default"
         try:
             return self.targets[target_name]
         except KeyError as e:
