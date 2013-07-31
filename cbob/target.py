@@ -127,13 +127,34 @@ class Target(object):
         dependencies_dir = join(self.path, "dependencies")
         added_deps = []
         for raw_dep in dependencies:
-            if raw_dep in self.dependencies:
-                logging.warning("Target '{}' is already a dependency of target '{}'.".format(raw_dep, self.name))
+            symlink_path = join(dependencies_dir, raw_dep)
+            if islink(symlink_path):
+                logging.info("Target '{}' is already a dependency of target '{}'.".format(raw_dep, self.name))
                 continue
-            dep_target = get_target(raw_dep)
-            make_rel_symlink(dep_target.path, join(dependencies_dir, raw_dep))
+            from cbob.error import TargetDoesntExistError
+            try:
+                dep_target = get_target(raw_dep)
+            except TargetDoesntExistError as e:
+                logging.warning("Target '{}' is not really a target.".format(raw_dep))
+                continue
+            make_rel_symlink(dep_target.path, symlink_path)
             added_deps.append(raw_dep)
         log_summary(added_deps, "dependency", added=True, target_name=self.name, plural="dependencies")
+        self._dependencies = None
+
+    def dependencies_remove(self, dependencies):
+        dependencies_dir = join(self.path, "dependencies")
+        removed_deps = []
+        for raw_dep in dependencies:
+            symlink_path = join(dependencies_dir, raw_dep)
+            try:
+                os.unlink(symlink_path)
+            except OSError:
+                logging.warning("Target '{}' is not a dependency of target '{}'.".format(raw_dep, self.name))
+                continue
+            removed_deps.append(raw_dep)
+
+        log_summary(removed_deps, "dependency", added=False, target_name=self.name, plural="dependencies")
         self._dependencies = None
 
     def plugins_add(self, plugin_globs):

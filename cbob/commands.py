@@ -37,6 +37,11 @@ def dependencies_add(target=None, dependencies=None):
     current_target = cbob.target.get_target(target)
     current_target.dependencies_add(dependencies)
 
+def dependencies_remove(target=None, dependencies=None):
+    import cbob.target
+    current_target = cbob.target.get_target(target)
+    current_target.dependencies_remove(dependencies)
+
 def configure(target=None, auto=None, force=None, compiler=None, linker=None, bindir=None):
     import cbob.target
     current_target = cbob.target.get_target(target)

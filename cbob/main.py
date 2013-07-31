@@ -69,8 +69,13 @@ def main():
     parsers["dependencies_add"].add_argument("dependencies", metavar="dependency", nargs="+", help="The target(s) to be added as dependencies.")
     parsers["dependencies_add"].set_defaults(func=commands.dependencies_add)
 
+    parsers["dependencies_remove"] = dependencies_subparsers.add_parser("remove", help="Remove a dependency.")
+    parsers["dependencies_remove"].add_argument("-t", "--target", help="The target to remove the dependency from (omit to mean default target).")
+    parsers["dependencies_remove"].add_argument("dependencies", metavar="dependency", nargs="+", help="The dependency target(s) to be removed.")
+    parsers["dependencies_remove"].set_defaults(func=commands.dependencies_remove)
+
     parsers["clean"] = subparsers.add_parser("clean", help="Clean out various parts.")
-    parsers["clean"].add_argument("-t", "--target", help="The target that requires the dependencies.")
+    parsers["clean"].add_argument("-t", "--target", help="The target to be cleaned (omit to clean default target).")
     parsers["clean"].add_argument("-a", "--all", dest="all_", action="store_true", help="Clean everything.")
     parsers["clean"].add_argument("-o", "--objects", action="store_true", help="Clean object files.")
     parsers["clean"].add_argument("-p", "--precompiled", action="store_true", help="Clean precompiled header files.")
@@ -84,8 +89,6 @@ def main():
     parsers["configure"].add_argument("-c", "--compiler", nargs=1, help="The path to the compiler binary (e.g. '--compiler=\"/usr/bin/gcc\"').")
     parsers["configure"].add_argument("-l", "--linker", nargs=1, help="The path to the compiler binary (e.g. '--linker=\"/usr/bin/ld.gold\"').")
     parsers["configure"].add_argument("-b", "--bindir", nargs=1, help="The path to the output directory for binaries (e.g. '--bindir=\"out/\"').")
-    #parsers["configure"].add_argument("--flags", nargs="*", help="The CFLAGS or CXXFLAGS to use (e.g. '--flags=\"$CFLAGS\"').")
-    #parsers["configure"].add_argument("--ldflags", nargs="*", help="The LDFLAGS to use (e.g. '--ldflags=\"$LDFLAGS\"').")
     parsers["configure"].set_defaults(func=commands.configure)
 
     parsers["plugins"] = subparsers.add_parser("plugins", help="Manage plugins.")

@@ -234,14 +234,25 @@ class TestCbobCLI(unittest.TestCase):
 
     def test_h2_depend_child(self):
         self.assertEqual(self._call_cmd("dependencies", "add", "--target", "all", "hello"), 0)
-        self.assertNotEqual(self._call_cmd("dependencies", "add", "--target", "all", "good-bye", silent=True), 0)
+        err_set = self._get_err_words_cmd("-v", "dependencies", "add", "--target", "all", "hello")
+        self.assertNotEqual(err_set, set())
+        err_set = self._get_err_words_cmd("dependencies", "add", "--target", "all", "good-bye")
+        self.assertNotEqual(err_set, set())
 
-    def test_h4_show_depend(self):
         out_set = self._get_words_cmd("show", "--target", "all", "--dependencies")
         self.assertTrue(set(("hello",)) < out_set)
 
     def test_h5_build(self):
         self.assertEqual(self._call_cmd("build", "--target", "all"), 0)
+
+    def test_h7_depend_remove(self):
+        self.assertEqual(self._call_cmd("dependencies", "remove", "--target", "all", "hello"), 0)
+        err_set = self._get_err_words_cmd("-v", "dependencies", "remove", "--target", "all", "hello")
+        self.assertNotEqual(err_set, set())
+
+        out_set = self._get_words_cmd("show", "--target", "all", "--dependencies")
+        self.assertFalse(set(("hello",)) < out_set)
+
 
     def test_i1_subadd(self):
         # subproject is not initialized
@@ -318,14 +329,10 @@ class TestCbobCLI(unittest.TestCase):
 
     def test_m1_new_error(self):
         self.assertEqual(self._call_cmd("new", "error"), 0)
-
-    def test_m2_add_error(self):
         self.assertEqual(self._call_cmd("add", "--target", "error", *self.files["error"].values()), 0)
-
-    def test_m3_build_error(self):
         self.assertNotEqual(self._call_cmd("build", "--target", "error", silent=True), 0)
 
-    def test_n1_register(self):
+    def test_n1_plugins(self):
         # first test that default target builds
         self.assertEqual(self._call_cmd("build"), 0)
         for plugin in self.files["plugins"].values():
