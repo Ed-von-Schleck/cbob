@@ -8,7 +8,7 @@ def main():
     verbosity = main_parser.add_mutually_exclusive_group()
     verbosity.add_argument("-v", "--verbose", help="print more verbose output", action="store_const", const=logging.INFO, dest="verbosity", default=logging.WARNING)
     verbosity.add_argument("-q", "--quiet", help="be silent", action="store_const", const=logging.ERROR, dest="verbosity", default=logging.WARNING)
-    verbosity.add_argument("-d", "--debug", help="print lots of debug output", action="store_const", const=logging.DEBUG, dest="verbosity", default=logging.WARNING)
+    verbosity.add_argument("--debug", help="print lots of debug output", action="store_const", const=logging.DEBUG, dest="verbosity", default=logging.WARNING)
     
     subparsers = main_parser.add_subparsers(help="Invoke command.")
 
@@ -20,6 +20,10 @@ def main():
     parsers["new"] = subparsers.add_parser("new", help="Create new target.")
     parsers["new"].add_argument("name", help="The target's name.")
     parsers["new"].set_defaults(func=commands.new)
+
+    parsers["delete"] = subparsers.add_parser("delete", help="Delete a target.")
+    parsers["delete"].add_argument("name", help="The target's name.")
+    parsers["delete"].set_defaults(func=commands.delete)
 
     parsers["add"] = subparsers.add_parser("add", help="Add file(s) to a target.")
     parsers["add"].add_argument("-t", "--target", help="The target to be added to (omit to add to default target).")
@@ -37,13 +41,9 @@ def main():
     parsers["info"].add_argument("-s", "--subprojects", action="store_true", help="List the project's subprojects.")
     parsers["info"].set_defaults(func=commands.info)
 
-    parsers["show"] = subparsers.add_parser("show", help="Show information about a target.")
-    parsers["show"].add_argument("-t", "--target", help="The inquired target (omit to show info about default target).")
-    parsers["show"].add_argument("-a", "--all", dest="all_", action="store_true", help="Show all available information about the target.")
-    parsers["show"].add_argument("-s", "--sources", action="store_true", help="List the target's sources.")
-    parsers["show"].add_argument("-d", "--dependencies", action="store_true", help="List the target's dependencies.")
-    parsers["show"].add_argument("-p", "--plugins", action="store_true", help="List the target's plugins.")
-    parsers["show"].set_defaults(func=commands.show)
+    parsers["list"] = subparsers.add_parser("list", help="List sources of target.")
+    parsers["list"].add_argument("-t", "--target", help="The inquired target (omit to show info about default target).")
+    parsers["list"].set_defaults(func=commands.list_)
 
     parsers["build"] = subparsers.add_parser("build", help="Build one, many or all targets.")
     parsers["build"].add_argument("-t", "--target", help="The target to build (omit to build the default target).")
@@ -51,6 +51,22 @@ def main():
     parsers["build"].add_argument("-o", "--oneshot", action="store_true", help="Build all sources, no matter what (shortcuts dependency resolution).")
     parsers["build"].add_argument("-k", "--keep-going", dest="keep_going", action="store_true", help="Try to limb along even when compile errors happen.")
     parsers["build"].set_defaults(func=commands.build)
+
+    parsers["clean"] = subparsers.add_parser("clean", help="Clean out various parts.")
+    parsers["clean"].add_argument("-t", "--target", help="The target to be cleaned (omit to clean default target).")
+    parsers["clean"].add_argument("-a", "--all", dest="all_", action="store_true", help="Clean everything.")
+    parsers["clean"].add_argument("-o", "--objects", action="store_true", help="Clean object files.")
+    parsers["clean"].add_argument("-p", "--precompiled", action="store_true", help="Clean precompiled header files.")
+    parsers["clean"].add_argument("-b", "--bin", dest="bin_", action="store_true", help="Clean binary files.")
+    parsers["clean"].set_defaults(func=commands.clean)
+
+    parsers["configure"] = subparsers.add_parser("configure", help="Set parameter(s) for a target.")
+    parsers["configure"].add_argument("-t", "--target", help="The target to configure.")
+    parsers["configure"].add_argument("-a", "--auto", action="store_true", help="Let cbob figure things out automatically (enabled if no other argument is given).")
+    parsers["configure"].add_argument("-f", "--force", action="store_true", help="Force overwriting previous configuration when '--auto' is used.")
+    parsers["configure"].add_argument("-c", "--compiler", nargs=1, help="The path to the compiler binary (e.g. '--compiler=\"/usr/bin/gcc\"').")
+    parsers["configure"].add_argument("-b", "--bindir", nargs=1, help="The path to the output directory for binaries (e.g. '--bindir=\"out/\"').")
+    parsers["configure"].set_defaults(func=commands.configure)
 
     parsers["subprojects"] = subparsers.add_parser("subprojects", help="Manage subprojects.")
     subprojects_subparsers = parsers["subprojects"].add_subparsers(help="Invoke command.")
@@ -74,46 +90,70 @@ def main():
     parsers["dependencies_remove"].add_argument("dependencies", metavar="dependency", nargs="+", help="The dependency target(s) to be removed.")
     parsers["dependencies_remove"].set_defaults(func=commands.dependencies_remove)
 
-    parsers["clean"] = subparsers.add_parser("clean", help="Clean out various parts.")
-    parsers["clean"].add_argument("-t", "--target", help="The target to be cleaned (omit to clean default target).")
-    parsers["clean"].add_argument("-a", "--all", dest="all_", action="store_true", help="Clean everything.")
-    parsers["clean"].add_argument("-o", "--objects", action="store_true", help="Clean object files.")
-    parsers["clean"].add_argument("-p", "--precompiled", action="store_true", help="Clean precompiled header files.")
-    parsers["clean"].add_argument("-b", "--bin", dest="bin_", action="store_true", help="Clean binary files.")
-    parsers["clean"].set_defaults(func=commands.clean)
-
-    parsers["configure"] = subparsers.add_parser("configure", help="Set parameter(s) for a target.")
-    parsers["configure"].add_argument("-t", "--target", help="The target to configure.")
-    parsers["configure"].add_argument("-a", "--auto", action="store_true", help="Let cbob figure things out automatically.")
-    parsers["configure"].add_argument("-f", "--force", action="store_true", help="Force overwriting previous configuration when '--auto' is used.")
-    parsers["configure"].add_argument("-c", "--compiler", nargs=1, help="The path to the compiler binary (e.g. '--compiler=\"/usr/bin/gcc\"').")
-    parsers["configure"].add_argument("-l", "--linker", nargs=1, help="The path to the compiler binary (e.g. '--linker=\"/usr/bin/ld.gold\"').")
-    parsers["configure"].add_argument("-b", "--bindir", nargs=1, help="The path to the output directory for binaries (e.g. '--bindir=\"out/\"').")
-    parsers["configure"].set_defaults(func=commands.configure)
+    parsers["dependencies_list"] = dependencies_subparsers.add_parser("list", help="List dependencies.")
+    parsers["dependencies_list"].add_argument("-t", "--target", help="The target to list the dependencies of (omit to mean default target).")
+    parsers["dependencies_list"].set_defaults(func=commands.dependencies_list)
 
     parsers["plugins"] = subparsers.add_parser("plugins", help="Manage plugins.")
     plugin_subparsers = parsers["plugins"].add_subparsers(help="Invoke command.")
     parsers["plugins_add"] = plugin_subparsers.add_parser("add", help="Register Python plugin(s) for a target.")
-    parsers["plugins_add"].add_argument("-t", "--target", help="The target to for the plugin (omit to mean the default target).")
+    parsers["plugins_add"].add_argument("-t", "--target", help="The target for the plugin (omit to mean the default target).")
     parsers["plugins_add"].add_argument("plugins", nargs="+", help="The path to the plugin(s).")
     parsers["plugins_add"].set_defaults(func=commands.plugins_add)
 
     parsers["plugins_remove"] = plugin_subparsers.add_parser("remove", help="Unregister Python plugin(s) from a target.")
-    parsers["plugins_remove"].add_argument("-t", "--target", help="The target to for the plugin (omit to mean the default target).")
+    parsers["plugins_remove"].add_argument("-t", "--target", help="The target for the plugin (omit to mean the default target).")
     parsers["plugins_remove"].add_argument("plugins", nargs="+", help="The path to the plugin(s).")
     parsers["plugins_remove"].set_defaults(func=commands.plugins_remove)
 
-    args = main_parser.parse_args()
+    parsers["plugins_list"] = plugin_subparsers.add_parser("list", help="List Python plugins of a target.")
+    parsers["plugins_list"].add_argument("-t", "--target", help="The target of the plugins (omit to mean the default target).")
+    parsers["plugins_list"].set_defaults(func=commands.plugins_list)
 
-    logging.basicConfig(format="cbob: %(message)s", level=args.verbosity)
+    parsers["options"] = subparsers.add_parser("options", help="Manage options.")
+    options_subparsers = parsers["options"].add_subparsers(help="Invoke command.")
+    parsers["options_new"] = options_subparsers.add_parser("new", help="Create a new configuration option for a target.")
+    parsers["options_new"].add_argument("-t", "--target", help="The target the option belongs to (omit to mean the default target).")
+    parsers["options_new"].add_argument("-c", "--choices", nargs="+", help="Possible choices for that option (default: 'on off').")
+    parsers["options_new"].add_argument("name", help="The name of the option.")
+    parsers["options_new"].set_defaults(func=commands.options_new)
+
+    parsers["options_edit"] = options_subparsers.add_parser("edit", help="Edit the flags of a configuration option.")
+    parsers["options_edit"].add_argument("-t", "--target", help="The target the option belongs to (omit to mean the default target).")
+    parsers["options_edit"].add_argument("-c", "--choice", default="on", help="The choice to edit (e.g. 'off', default: 'on'.")
+    parsers["options_edit"].add_argument("-e", "--editor", help="The editor to use (default: $EDITOR, fallback: '/usr/bin/vi').")
+    parsers["options_edit"].add_argument("option", help="The name of the option.")
+    parsers["options_edit"].set_defaults(func=commands.options_edit)
+
+    parsers["options_info"] = options_subparsers.add_parser("info", help="Print information about the options of a target.")
+    parsers["options_info"].add_argument("-t", "--target", help="The target that is inquired about (omit to mean the default target).")
+    parsers["options_info"].set_defaults(func=commands.options_info)
+
+    parsers["options_list"] = options_subparsers.add_parser("list", help="Print information about a specific option of a target.")
+    parsers["options_list"].add_argument("-t", "--target", help="The target that is inquired about (omit to mean the default target).")
+    parsers["options_list"].add_argument("option", help="The option that is inquired about.")
+    parsers["options_list"].set_defaults(func=commands.options_list)
+
+    args, extra = main_parser.parse_known_args()
+
+    logging.basicConfig(format="cbob: %(message)s")
+    logger = logging.getLogger()
+    logger.setLevel(args.verbosity)
+
 
     from cbob.error import CbobError
     try:
         func = args.func
-        argdict = args.__dict__
+        argdict = vars(args)
         del argdict["verbosity"]
         del argdict["func"]
-        func(**argdict)
+        if "args" in argdict:
+            extra += argdict["args"]
+            del argdict["args"]
+        if extra:
+            func(args=extra, **argdict)
+        else:
+            func(**argdict)
     except CbobError as e:
         logging.error(e)
         exit(1)

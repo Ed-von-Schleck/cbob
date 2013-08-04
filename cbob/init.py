@@ -7,6 +7,5 @@ def init():
     if isdir(".cbob"):
         from cbob.error import CbobError
         raise CbobError("cbob is already initialized in '{}'".format(cbob_path))
-    os.makedirs(join(".cbob", "targets"))
-    os.makedirs(join(".cbob", "subprojects"))
+    os.makedirs(".cbob")
     logging.info("initialized cbob in '{}'".format(cbob_path))

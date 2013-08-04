@@ -1,3 +1,4 @@
+from collections import namedtuple
 from contextlib import contextmanager
 import logging
 from functools import partial
@@ -6,12 +7,11 @@ from os.path import basename, join, islink, normpath, isdir, isfile, expandvars,
 import subprocess
 
 from cbob.helpers import read_symlink, make_rel_symlink, print_information, log_summary
-from cbob.definitions import SOURCE_FILE_EXTENSIONS, HOOKS
+from cbob.definitions import SOURCE_FILE_EXTENSIONS, HOOKS, SYNONYMS_FOR_OFF, SYNONYMS_FOR_ON
 from cbob.node import SourceNode, HeaderNode
+from cbob.paths import DirNamespace
 
 class Target(object):
-    __slots__ = ("path", "name", "_sources", "project", "_dependencies", "_compiler", "_linker", "_bin_dir", "_language", "_plugins")
-
     def __init__(self, path, project):
         self.path = path
         self.name = basename(path)
@@ -19,43 +19,41 @@ class Target(object):
         self._sources = None
         self._dependencies = None
         self._compiler = None
-        self._linker = None
         self._bin_dir = None
         self._language = None
         self._plugins = None
+        self._options = None
+        self.dirs = DirNamespace(path, {
+            "sources": "sources",
+            "dependencies": "dependencies",
+            "options": "options",
+            "plugins": "plugins",
+            "objects": ".objects",
+            "precompiled_headers": ".precompiled_headers"})
 
     @property
     def sources(self):
         if self._sources is None:
-            sources_dir = join(self.path, "sources")
-            self._sources = [read_symlink(name, sources_dir) for name in os.listdir(sources_dir)]
+            self._sources = [read_symlink(name, self.dirs.sources) for name in os.listdir(self.dirs.sources)]
         return self._sources
 
     @property
     def dependencies(self):
         if self._dependencies is None:
-            deps_dir = join(self.path, "dependencies")
-            self._dependencies = {raw_dep_name: get_target(raw_dep_name) for raw_dep_name in os.listdir(deps_dir)}
+            self._dependencies = {raw_dep_name: get_target(raw_dep_name) for raw_dep_name in os.listdir(self.dirs.dependencies)}
         return self._dependencies
 
     @property
     def compiler(self):
         if self._compiler is None:
-            with assume_configured():
+            with self.assume_configured():
                 self._compiler = os.readlink(join(self.path, "compiler"))
         return self._compiler
 
     @property
-    def linker(self):
-        if self._linker is None:
-            with assume_configured():
-                self._linker = os.readlink(join(self.path, "linker"))
-        return self._linker
-
-    @property
     def bin_dir(self):
         if self._bin_dir is None:
-            with assume_configured():
+            with self.assume_configured():
                 self._bin_dir= os.readlink(join(self.path, "bin_dir"))
         return self._bin_dir
 
@@ -69,20 +67,33 @@ class Target(object):
     def plugins(self):
         if self._plugins is None:
             import imp
-            plugins_dir = join(self.path, "plugins")
-            self._plugins = {hook: [] for hook in HOOKS}
+            plugins_dir = self.dirs.plugins
+            self._plugins = {}
             for filename in os.listdir(plugins_dir):
                 abs_filename = read_symlink(filename, plugins_dir)
                 path, filename = split(abs_filename)
                 name, ext = splitext(filename)
                 fp, fn, desc = imp.find_module(name, [path])
                 plugin_module = imp.load_module(name, fp, fn, desc)
-                hooks = [func for func in dir(plugin_module) if func in HOOKS]
-                for hook in hooks:
-                    plugin_func = getattr(plugin_module, hook)
-                    plugin_func._filepath = abs_filename
-                    self._plugins[hook].append(plugin_func)
+                for hook, func in vars(plugin_module).items():
+                    if hook in HOOKS:
+                        if not hook in self._plugins:
+                            self._plugins[hook] = {}
+                        self._plugins[hook][abs_filename] = func
         return self._plugins
+
+    @property
+    def options(self):
+        if self._options == None:
+            self._options = {}
+            for name in os.listdir(self.dirs.options):
+                self._options[name] = {}
+                this_option_dir = join(self.dirs.options, name)
+                for choice in os.listdir(this_option_dir):
+                    with open(join(this_option_dir, choice), "r") as choice_f:
+                        self._options[name][choice] = choice_f.readlines()
+
+        return self._options
 
     def _source_filetype_check(self, file_name, abs_file_path, symlink_path):
         if not splitext(file_name)[1] in SOURCE_FILE_EXTENSIONS:
@@ -101,33 +112,13 @@ class Target(object):
         self._remove_something_from_globs("sources", source_globs, "file")
         self._sources = None
 
-    def show(self, all_, sources, dependencies, plugins):
-        if not sources and not dependencies:
-            all_ = True
-        if all_ or sources:
-            print()
-            print_information("Sources", self.sources)
-        if all_ or dependencies:
-            print()
-            print_information("Dependencies", self.dependencies)
-        if all_ or plugins:
-            print()
-            print("Plugins:")
-            if self.plugins:
-                for hookname, funcs in self.plugins.items():
-                    if funcs:
-                        print(" ", hookname + ":")
-                        for func in funcs:
-                            print("   ", func._filepath)
-            else:
-                print("  (none)")
-            
+    def list_(self):
+        print_information("Sources", self.sources)
 
     def dependencies_add(self, dependencies):
-        dependencies_dir = join(self.path, "dependencies")
         added_deps = []
         for raw_dep in dependencies:
-            symlink_path = join(dependencies_dir, raw_dep)
+            symlink_path = join(self.dirs.dependencies, raw_dep)
             if islink(symlink_path):
                 logging.info("Target '{}' is already a dependency of target '{}'.".format(raw_dep, self.name))
                 continue
@@ -143,10 +134,9 @@ class Target(object):
         self._dependencies = None
 
     def dependencies_remove(self, dependencies):
-        dependencies_dir = join(self.path, "dependencies")
         removed_deps = []
         for raw_dep in dependencies:
-            symlink_path = join(dependencies_dir, raw_dep)
+            symlink_path = join(self.dirs.dependencies, raw_dep)
             try:
                 os.unlink(symlink_path)
             except OSError:
@@ -157,6 +147,9 @@ class Target(object):
         log_summary(removed_deps, "dependency", added=False, target_name=self.name, plural="dependencies")
         self._dependencies = None
 
+    def dependencies_list(self):
+        print_information("Dependencies", self.dependencies)
+
     def plugins_add(self, plugin_globs):
         self._add_something_from_globs("plugins", plugin_globs, "plugin")
         self._plugins = None
@@ -164,6 +157,75 @@ class Target(object):
     def plugins_remove(self, plugin_globs):
         self._remove_something_from_globs("plugins", plugin_globs, "plugin")
         self._plugins = None
+
+    def plugins_list(self):
+        print("Plugins:")
+        empty = True
+        for hookname, funcs in self.plugins.items():
+            if funcs:
+                empty = False
+                print(" ", hookname + ":")
+                for path in funcs.keys():
+                    print("   ", path)
+        if empty:
+            print("  (none)")
+
+    def options_new(self, name, choices):
+        if choices == None:
+            choices = ("on", "off")
+        new_option_dir = join(self.dirs.options, name)
+        logging.debug("creating option '{}' in directory '{}'".format(name, new_option_dir))
+        try:
+            os.mkdir(new_option_dir)
+        except OSError as e:
+            from cbob.error import CbobError
+            raise CbobError("Option '{}' for target '{}' already exists.".format(name, self.name)) from e
+        for choice in choices:
+            if choice in SYNONYMS_FOR_ON:
+                choice = "on"
+            elif choice in SYNONYMS_FOR_OFF:
+                choice = "off"
+            open(join(new_option_dir, choice), "a").close()
+
+    def options_edit(self, option, choice, editor):
+        option_dir = join(self.dirs.options, option)
+        if not isdir(option_dir):
+            from cbob.error import OptionDoesntExistError 
+            raise OptionDoesntExistError(self.name, option)
+        choice_filename = join(option_dir, choice)
+        if not isfile(choice_filename):
+            from cbob.error import ChoiceDoesntExistError
+            raise ChoiceDoesntExistError(self.name, option, choice)
+        if editor is None:
+            editor = expandvars("$EDITOR")
+            if editor == "$EDITOR":
+                editor = "/usr/bin/vi"
+        import tempfile
+        import shutil
+        import sys
+        with tempfile.NamedTemporaryFile(encoding=sys.stdout.encoding, mode="r+") as tmp_file, \
+                open(choice_filename, "r", encoding=sys.stdout.encoding) as choice_file:
+            tmp_file.write("# Flags for choice '{}' of option '{}' of target '{}'.\n".format(choice, option, self.name))
+            tmp_file.write("# Add compiler arguments (like '-g' or '-O2'). Use one line per argument.\n")
+            tmp_file.write("# The order of the arguments is being preserved.\n")
+            tmp_file.write("# Lines starting with '#' are ignored.\n\n")
+            shutil.copyfileobj(choice_file, tmp_file)
+            tmp_file.flush()
+            if subprocess.call((editor, tmp_file.name)) != 0:
+                from cbob.error import CbobError
+                raise CbobError("Cancelled editing of option '{}'.".format(option))
+            tmp_file.flush()
+            tmp_file.seek(0)
+            new_flags = [line.strip() for line in tmp_file.readlines() if line and not line.startswith("#")]
+        with open(choice_filename, "w", encoding=sys.stdout.encoding) as choice_file:
+            choice_file.writelines(new_flags)
+
+
+    def options_info(self):
+        print_information("Options", self.options)
+
+    def options_list(self, option):
+        print_information("Option '{}'".format(option), self.options[option])
 
     def build(self, jobs, oneshot, keep_going):
         for dep_name, dep_target in self.dependencies.items():
@@ -182,7 +244,7 @@ class Target(object):
             logging.info("No sources - nothing to do.")
             return
         
-        if self.compiler is None or self.linker is None or self.bin_dir is None:
+        if self.compiler is None or self.bin_dir is None:
             from cbob.error import NotConfiguredError
             raise NotConfiguredError(self.name)
 
@@ -266,7 +328,7 @@ class Target(object):
                 raise CbobError("skip linking because of compilation errors")
             # link
             object_file_names = [node.object_path for node in source_nodes]
-            cmd = [self.linker, "-o", bin_path] + object_file_names
+            cmd = [self.compiler, "-o", bin_path] + object_file_names
             logging.info("linking ...")
             logging.info("  " + bin_path)
             return_code = subprocess.call(cmd)
@@ -353,13 +415,12 @@ class Target(object):
                 return "C++"
         return None
 
-    def configure(self, auto, force, compiler, linker, bin_dir):
+    def configure(self, auto, force, compiler, bin_dir):
+        #if not None in {compiler, bin_dir}:
+        #    auto = True
         if compiler is not None:
             os.symlink(compiler, join(self.path, "compiler"))
             self._compiler = None
-        if linker is not None:
-            os.symlink(linker, join(self.path, "linker"))
-            self._linker = None
         if bin_dir is not None:
             os.symlink(bin_dir, join(self.path, "bin_dir"))
             self._bin_dir = None
@@ -370,11 +431,6 @@ class Target(object):
                     compiler_path = self._find_compiler_path()
                     os.symlink(compiler_path, compiler_symlink)
                     self._compiler = None
-            if linker is None:
-                linker_symlink = self._check_prepare_symlink("linker", "linker", force)
-                if linker_symlink is not None:
-                    os.symlink(self.compiler, linker_symlink)
-                    self._linker = None
             if bin_dir is None:
                 bin_dir_symlink = self._check_prepare_symlink("bin_dir", "binary output directory", force)
                 if bin_dir_symlink is not None:
@@ -383,8 +439,7 @@ class Target(object):
                     os.symlink(bindir_auto, bin_dir_symlink)
                     self._bin_dir = None
         logging.info("compiler: '{}', "
-                     "linker: '{}', "
-                     "binary output directory: '{}'".format(self.compiler, self.linker, self.bin_dir))
+                     "binary output directory: '{}'".format(self.compiler, self.bin_dir))
 
     def _check_prepare_symlink(self, name, description, force):
         symlink = join(self.path, name)
@@ -423,8 +478,7 @@ class Target(object):
             raise CbobError("no compiler for language '{}' found (might be cbob's fault).".format(self.language))
         return compiler_path
 
-    def _clean_dir(self, dirname):
-        dir_path = join(self.path, dirname)
+    def _clean_dir(self, dir_path):
         for file_name in os.listdir(dir_path):
             file_path = join(dir_path, file_name)
             os.remove(file_path)
@@ -433,10 +487,10 @@ class Target(object):
 
     def clean(self, all_, object_files, pch_files, bin_file):
         if all_ or object_files:
-            self._clean_dir("objects")
+            self._clean_dir(self.dirs.objects)
             logging.info("cleaned object files")
         if all_ or pch_files:
-            self._clean_dir("precompiled_headers")
+            self._clean_dir(self.dirs.precompiled_headers)
             logging.info("cleaned precompiled header files")
         if all_ or bin_file:
             bin_path = join(self.bin_dir, self.name)
@@ -449,15 +503,24 @@ class Target(object):
 
     def run_plugins(self, hookname):
         logging.debug("running '{}' plugin functions".format(hookname))
-        for func in self.plugins[hookname]:
-            logging.debug("running plugin function '{}'".format(func))
-            func(self)
+        if hookname in self.plugins:
+            for func in self.plugins[hookname].values():
+                logging.debug("running plugin function '{}'".format(func))
+                func(self)
 
     def _remove_something_from_globs(self, dirname, globs, thing):
         self.project._remove_something_from_globs(join(self.path, dirname), globs, thing, self.name)
 
     def _add_something_from_globs(self, dirname, globs, thing, checks=None):
         self.project._add_something_from_globs(join(self.path, dirname), globs, thing, checks=checks, target_name=self.name)
+
+    @contextmanager
+    def assume_configured(self):
+        try:
+            yield
+        except OSError as e:
+            from cbob.error import NotConfiguredError
+            raise NotConfiguredError(self.name) from e
 
 def _get_dep_info(file_path, gcc_path):
     # The options used:
@@ -504,10 +567,4 @@ def get_target(raw_target_name=None):
     current_project = cbob.project.get_project(subproject_names)
     return current_project.get_target(target_name)
 
-@contextmanager
-def assume_configured():
-    try:
-        yield
-    except OSError as e:
-        from cbob.error import NotConfiguredError
-        raise NotConfiguredError(self.name) from e
+

@@ -148,8 +148,8 @@ class TestCbobCLI(unittest.TestCase):
         # If all files exist, cbob doesn't say anything
         self.assertEqual(out_set, set())
 
-    def test_d2_show(self):
-        out_set = self._get_words_cmd("show", "--target", "hello")
+    def test_d2_list(self):
+        out_set = self._get_words_cmd("list", "--target", "hello")
         self.assertTrue(set(self.files["src"].values()) < out_set)
 
     def test_d3_add_nonexisting_file(self):
@@ -160,8 +160,8 @@ class TestCbobCLI(unittest.TestCase):
     def test_d4_remove(self):
         self.assertEqual(self._call_cmd("remove", "--target", "hello", *self.files["src"].values()), 0)
 
-    def test_d5_show_not(self):
-        out_set = self._get_words_cmd("show", "--target", "hello")
+    def test_d5_list_not(self):
+        out_set = self._get_words_cmd("list", "--target", "hello")
         self.assertFalse(set(self.files["src"].values()) < out_set)
 
     def test_e1_add_wildcard(self):
@@ -170,9 +170,9 @@ class TestCbobCLI(unittest.TestCase):
         file_wildcard = join("error", "*.c")
         self.assertEqual(self._call_cmd("add", "--target", "hello", file_wildcard), 0)
 
-    def test_e2_show_wildcard(self):
+    def test_e2_list_wildcard(self):
         # This adds the "error.c" file as well
-        out_set = self._get_words_cmd("show", "--target", "hello")
+        out_set = self._get_words_cmd("list", "--target", "hello")
         self.assertTrue(set(self.files["src"].values()) < out_set)
         self.assertTrue(set(self.files["error"].values()) < out_set)
 
@@ -202,17 +202,17 @@ class TestCbobCLI(unittest.TestCase):
         self.assertFalse(isfile(join(self.bin_dir, "hello")))
 
     def test_g8_build(self):
-        out_set = self._get_err_words_cmd("-d", "build", "--target", "hello")
+        out_set = self._get_err_words_cmd("--debug", "build", "--target", "hello")
         # Check that all sources are mentioned in the debug output
         self.assertTrue(set(self.files["src"].values()) < out_set)
 
-        out_set = self._get_err_words_cmd("-d", "build", "--target", "hello")
+        out_set = self._get_err_words_cmd("--debug", "build", "--target", "hello")
         # Check that no source is mentioned in the debug output, since they didn't change
         self.assertFalse(set(self.files["src"].values()) < out_set)
 
         src_file_list = list(self.files["src"].values())
         subprocess.call(("touch", src_file_list[0]))
-        out_set = self._get_err_words_cmd("-d", "build", "--target", "hello")
+        out_set = self._get_err_words_cmd("--debug", "build", "--target", "hello")
         # Check that just the one source file that we touched is recompiled
         self.assertTrue(set(src_file_list[0:1]) < out_set)
         self.assertFalse(set(src_file_list[1:]) < out_set)
@@ -220,7 +220,7 @@ class TestCbobCLI(unittest.TestCase):
         #header_file_list = list(self.files["include"])
         for header_file in self.files["include"].values():
             subprocess.call(("touch", header_file))
-        out_set = self._get_err_words_cmd("-d", "build", "--target", "hello")
+        out_set = self._get_err_words_cmd("--debug", "build", "--target", "hello")
         # Check that all sources (that depend on the header file) are recompiled
         self.assertTrue(set(self.files["src"].values()) < out_set)
 
@@ -239,7 +239,7 @@ class TestCbobCLI(unittest.TestCase):
         err_set = self._get_err_words_cmd("dependencies", "add", "--target", "all", "good-bye")
         self.assertNotEqual(err_set, set())
 
-        out_set = self._get_words_cmd("show", "--target", "all", "--dependencies")
+        out_set = self._get_words_cmd("dependencies", "list", "--target", "all")
         self.assertTrue(set(("hello",)) < out_set)
 
     def test_h5_build(self):
@@ -250,7 +250,7 @@ class TestCbobCLI(unittest.TestCase):
         err_set = self._get_err_words_cmd("-v", "dependencies", "remove", "--target", "all", "hello")
         self.assertNotEqual(err_set, set())
 
-        out_set = self._get_words_cmd("show", "--target", "all", "--dependencies")
+        out_set = self._get_words_cmd("dependencies", "list", "--target", "all")
         self.assertFalse(set(("hello",)) < out_set)
 
 
@@ -288,8 +288,8 @@ class TestCbobCLI(unittest.TestCase):
         err_set = self._get_err_words_cmd("add", "--target", "subtest.subhello", *self.files["src"].values())
         self.assertNotEqual(err_set, set())
 
-    def test_j3_sub_show(self):
-        out_set = self._get_words_cmd("show", "--target", "subtest.subhello")
+    def test_j3_sub_list(self):
+        out_set = self._get_words_cmd("list", "--target", "subtest.subhello")
         self.assertTrue(set(self.files["subtest"].values()) < out_set)
         self.assertFalse(set(self.files["src"].values()) < out_set)
 
@@ -344,7 +344,7 @@ class TestCbobCLI(unittest.TestCase):
         out_set = self._get_words_cmd("build")
         self.assertTrue({"Hello", "pre-build"} < out_set)
         self.assertTrue({"Hello", "post-build"} < out_set)
-        out_set = self._get_words_cmd("show", "--plugins")
+        out_set = self._get_words_cmd("plugins", "list")
         self.assertTrue(set(self.files["plugins"].values()) < out_set)
 
         for plugin in self.files["plugins"].values():
@@ -356,7 +356,7 @@ class TestCbobCLI(unittest.TestCase):
         out_set = self._get_words_cmd("build")
         self.assertFalse({"Hello", "pre-build"} < out_set)
         self.assertFalse({"Hello", "post-build"} < out_set)
-        out_set = self._get_words_cmd("show", "--plugins")
+        out_set = self._get_words_cmd("plugins", "list")
         self.assertFalse(set(self.files["plugins"].values()) < out_set)
         
 

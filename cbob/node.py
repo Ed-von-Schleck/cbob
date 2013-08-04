@@ -8,17 +8,14 @@ class BaseNode(object):
         self.dependencies = set()
 
 class SourceNode(BaseNode):
-    __slots__ = ("target", "object_path", "h_path", "gch_path")
+    __slots__ = ("object_path", "h_path", "gch_path")
     def __init__(self, path, target):
         super().__init__(path)
-        self.target = target
         _project = target.project
-        objects_dir = join(target.path, "objects")
-        precompiled_headers_dir = join(target.path, "precompiled_headers")
         mangled_path_base = splitext(_project.mangle_path(path))[0]
-        self.object_path = join(objects_dir, mangled_path_base + ".o")
-        self.h_path = join(precompiled_headers_dir, mangled_path_base + ".h")
-        self.gch_path = join(precompiled_headers_dir, mangled_path_base + ".gch")
+        self.object_path = join(target.dirs.objects, mangled_path_base + ".o")
+        self.h_path = join(target.dirs.precompiled_headers, mangled_path_base + ".h")
+        self.gch_path = join(target.dirs.precompiled_headers, mangled_path_base + ".gch")
 
     def mark_dirty(self, dirty_source_nodes, dirty_header_nodes):
         try:

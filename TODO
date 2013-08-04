@@ -1,0 +1,12 @@
+TODO
+====
+
+- Fill in missing commands:
+  - rename (a target)
+  - options delete
+  - options rename
+
+- add a command to change default target
+
+- Assure that there's sufficient logging
+

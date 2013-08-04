@@ -3,6 +3,7 @@ import os
 from os.path import normpath, join, isdir, dirname, basename, abspath, islink, commonprefix, relpath, expanduser
 
 from cbob.helpers import read_symlink, make_rel_symlink, print_information, log_summary
+from cbob.paths import DirNamespace
 
 class Project(object):
     def __init__(self, root_path=None):
@@ -25,12 +26,15 @@ class Project(object):
         self._subprojects = None
         self._targets = None
         self._gcc_path = None
+        self.dirs = DirNamespace(join(self.root_path, ".cbob"), {
+            "subprojects": "subprojects",
+            "targets": "targets"})
 
     @property
     def targets(self):
         if self._targets is None:
             from cbob.target import Target
-            targets_dir = join(self.root_path, ".cbob", "targets")
+            targets_dir = self.dirs.targets
             self._targets = {name: Target(join(targets_dir, name), self) for name in os.listdir(targets_dir) if name is not "_default"}
             if self._targets:
                 self._targets["_default"] = self._targets[os.readlink(join(targets_dir, "_default"))]
@@ -39,7 +43,7 @@ class Project(object):
     @property
     def subprojects(self):
         if self._subprojects is None:
-            subprojects_dir = join(self.root_path, ".cbob", "subprojects")
+            subprojects_dir = self.dirs.subprojects
             self._subprojects = {name: Project(read_symlink(name, subprojects_dir)) for name in os.listdir(subprojects_dir)}
         return self._subprojects
 
@@ -56,20 +60,33 @@ class Project(object):
         return self._gcc_path
 
     def new_target(self, target_name):
-        make_default = "_default" not in self.targets
+        make_default = not islink(join(self.dirs.targets, "_default"))
         assert("." not in target_name) # subprojects should be handled by caller
-        if target_name in self.targets:
+        new_target_dir = join(self.dirs.targets, target_name)
+        if isdir(new_target_dir):
             from cbob.error import CbobError
             raise CbobError("a target named '{}' already exists".format(target_name))
-        new_target_dir = join(self.root_path, ".cbob", "targets", target_name)
+        os.makedirs(new_target_dir)
 
-        for dir_name in ("sources", "objects", "precompiled_headers", "dependencies", "plugins"):
-            os.makedirs(join(new_target_dir, dir_name))
         if make_default:
-            os.symlink(target_name, join(self.root_path, ".cbob", "targets", "_default"))
+            os.symlink(target_name, join(self.dirs.targets, "_default"))
 
         self._targets = None
         logging.info("Added new target '{}'".format(target_name))
+
+    def delete_target(self, target_name):
+        is_default = os.readlink(join(self.dirs.targets, "_default")) == target_name
+        target_dir = join(self.dirs.targets, target_name)
+        import shutil
+        try:
+            shutil.rmtree(target_dir)
+        except OSError as e:
+            from cbob.error import TargetDoesntExistError
+            raise TargetDoesntExistError(target_name) from e
+        if is_default:
+            os.unlink(join(self.dirs.targets, "_default"))
+            logging.info("Unset target '{}' as default target".format(target_name))
+        logging.info("Removed target '{}'".format(target_name))
 
     def info(self, all_, targets, subprojects):
         if not targets and not subprojects:
@@ -110,13 +127,11 @@ class Project(object):
         return True
 
     def subprojects_add(self, subproject_globs):
-        subprojects_path = join(self.root_path, ".cbob", "subprojects")
-        self._add_something_from_globs(subprojects_path, subproject_globs, "subproject", [self._subproject_check])
+        self._add_something_from_globs(self.dirs.subprojects, subproject_globs, "subproject", [self._subproject_check])
         self._subprojects = None
 
     def subprojects_remove(self, subproject_globs):
-        dir_path = join(self.root_path, ".cbob", "subprojects")
-        self._remove_something_from_globs(dir_path, subproject_globs, "subproject")
+        self._remove_something_from_globs(self.dirs.subprojects, subproject_globs, "subproject")
         self._subprojects = None
 
     def get_target(self, target_name=None):
@@ -132,7 +147,8 @@ class Project(object):
         added_things = []
         for file_name, abs_file_path, symlink_path in self._iter_globs(globs, dir_path):
             if islink(symlink_path):
-                logging.debug("'{}' is already a {}.".format(file_name, thing))
+                tail = " of target '{}'".format(target_name) if target_name is not None else ""
+                logging.debug("'{}' is already a {}{}.".format(file_name, thing, tail))
                 continue
             if commonprefix((abs_file_path, self.root_path)) != self.root_path:
                 logging.warning("{} '{}' is not in a (sub)-direcory of the project.".format(thing.capitalize(), file_name))
@@ -147,7 +163,6 @@ class Project(object):
                     continue
             added_things.append(file_name)
             make_rel_symlink(abs_file_path, symlink_path)
-
         log_summary(added_things, thing, added=True, target_name=target_name)
         
 
@@ -157,13 +172,10 @@ class Project(object):
             try:
                 os.unlink(symlink_path)
             except OSError:
-                if target_name is not None:
-                    logging.debug("{}' is not a {} of target '{}'.".format(file_name, thing, target_name))
-                else:
-                    logging.debug("{}' is not a {}.".format(file_name, thing))
+                tail = " of target '{}'".format(target_name) if target_name is not None else ""
+                logging.debug("{}' is not a {}{}.".format(file_name, thing, tail))
                 continue
             removed_things.append(file_name)
-        
         log_summary(removed_things, thing, added=False, target_name=target_name)
 
 _project = None
@@ -181,6 +193,4 @@ def get_project(subproject_names=None):
         except KeyError as e:
             from cbob.error import SubprojectDoesntExistError
             raise SubprojectDoesntExistError(subproject_name) from e
-
     return current_project
-

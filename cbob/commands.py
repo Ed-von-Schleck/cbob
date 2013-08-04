@@ -4,6 +4,12 @@ def new(name):
     current_project = cbob.project.get_project(subproject_names)
     current_project.new_target(target_name)
 
+def delete(name):
+    import cbob.project
+    *subproject_names, target_name = name.split(".")
+    current_project = cbob.project.get_project(subproject_names)
+    current_project.delete_target(target_name)
+
 def init():
     import cbob.init
     cbob.init.init()
@@ -22,10 +28,10 @@ def info(all_=False, targets=False, subprojects=False):
     import cbob.project
     cbob.project.get_project().info(all_, targets, subprojects)
 
-def show(target=None, all_=False, sources=False, dependencies=False, plugins=False):
+def list_(target=None):
     import cbob.target
     current_target = cbob.target.get_target(target)
-    current_target.show(all_, sources, dependencies, plugins)
+    current_target.list_()
 
 def build(target=None, jobs=None, oneshot=None, keep_going=None):
     import cbob.target
@@ -42,10 +48,15 @@ def dependencies_remove(target=None, dependencies=None):
     current_target = cbob.target.get_target(target)
     current_target.dependencies_remove(dependencies)
 
-def configure(target=None, auto=None, force=None, compiler=None, linker=None, bindir=None):
+def dependencies_list(target=None):
     import cbob.target
     current_target = cbob.target.get_target(target)
-    current_target.configure(auto, force, compiler, linker, bindir)
+    current_target.dependencies_list()
+
+def configure(target=None, auto=None, force=None, compiler=None, bindir=None):
+    import cbob.target
+    current_target = cbob.target.get_target(target)
+    current_target.configure(auto, force, compiler, bindir)
 
 def subprojects_add(projects):
     import cbob.project
@@ -70,4 +81,27 @@ def plugins_remove(plugins, target=None):
     current_target = cbob.target.get_target(target)
     current_target.plugins_remove(plugins)
 
+def plugins_list(target=None):
+    import cbob.target
+    current_target = cbob.target.get_target(target)
+    current_target.plugins_list()
 
+def options_new(name, target=None, choices=None):
+    import cbob.target
+    current_target = cbob.target.get_target(target)
+    current_target.options_new(name, choices)
+
+def options_edit(option, choice, editor=None, target=None):
+    import cbob.target
+    current_target = cbob.target.get_target(target)
+    current_target.options_edit(option, choice, editor)
+
+def options_info(target=None):
+    import cbob.target
+    current_target = cbob.target.get_target(target)
+    current_target.options_info()
+
+def options_list(option, target=None):
+    import cbob.target
+    current_target = cbob.target.get_target(target)
+    current_target.options_list(option)
