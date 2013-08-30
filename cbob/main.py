@@ -47,7 +47,7 @@ def main():
 
     parsers["build"] = subparsers.add_parser("build", help="Build one, many or all targets.")
     parsers["build"].add_argument("-t", "--target", help="The target to build (omit to build the default target).")
-    parsers["build"].add_argument("-j", "--jobs", nargs=1, type=int, help="The target to build.")
+    parsers["build"].add_argument("-j", "--jobs", type=int, help="The target to build.")
     parsers["build"].add_argument("-o", "--oneshot", action="store_true", help="Build all sources, no matter what (shortcuts dependency resolution).")
     parsers["build"].add_argument("-k", "--keep-going", dest="keep_going", action="store_true", help="Try to limb along even when compile errors happen.")
     parsers["build"].set_defaults(func=commands.build)
@@ -122,7 +122,8 @@ def main():
     parsers["options_edit"].add_argument("-t", "--target", help="The target the option belongs to (omit to mean the default target).")
     parsers["options_edit"].add_argument("-c", "--choice", default="on", help="The choice to edit (e.g. 'off', default: 'on'.")
     parsers["options_edit"].add_argument("-e", "--editor", help="The editor to use (default: $EDITOR, fallback: '/usr/bin/vi').")
-    parsers["options_edit"].add_argument("option", help="The name of the option.")
+    parsers["options_edit"].add_argument("-a", "--add", default="ask", choices=("yes", "no", "ask"), help="Create the choice if it doesn't exist (default: 'ask').")
+    parsers["options_edit"].add_argument("option", help="The name of the option to edit.")
     parsers["options_edit"].set_defaults(func=commands.options_edit)
 
     parsers["options_info"] = options_subparsers.add_parser("info", help="Print information about the options of a target.")

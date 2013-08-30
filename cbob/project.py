@@ -4,6 +4,7 @@ from os.path import normpath, join, isdir, dirname, basename, abspath, islink, c
 
 from cbob.helpers import read_symlink, make_rel_symlink, print_information, log_summary
 from cbob.paths import DirNamespace
+from cbob.lazyattribute import lazy_attribute
 
 class Project(object):
     def __init__(self, root_path=None):
@@ -23,41 +24,33 @@ class Project(object):
             self.root_path = root_path
 
         self.name = basename(self.root_path)
-        self._subprojects = None
-        self._targets = None
-        self._gcc_path = None
         self.dirs = DirNamespace(join(self.root_path, ".cbob"), {
             "subprojects": "subprojects",
             "targets": "targets"})
 
-    @property
+    @lazy_attribute
     def targets(self):
-        if self._targets is None:
-            from cbob.target import Target
-            targets_dir = self.dirs.targets
-            self._targets = {name: Target(join(targets_dir, name), self) for name in os.listdir(targets_dir) if name is not "_default"}
-            if self._targets:
-                self._targets["_default"] = self._targets[os.readlink(join(targets_dir, "_default"))]
-        return self._targets
+        from cbob.target import Target
+        targets_dir = self.dirs.targets
+        targets = {name: Target(join(targets_dir, name), self) for name in os.listdir(targets_dir) if name is not "_default"}
+        if targets:
+            targets["_default"] = targets[os.readlink(join(targets_dir, "_default"))]
+        return targets
 
-    @property
+    @lazy_attribute
     def subprojects(self):
-        if self._subprojects is None:
-            subprojects_dir = self.dirs.subprojects
-            self._subprojects = {name: Project(read_symlink(name, subprojects_dir)) for name in os.listdir(subprojects_dir)}
-        return self._subprojects
+        subprojects_dir = self.dirs.subprojects
+        return {name: Project(read_symlink(name, subprojects_dir)) for name in os.listdir(subprojects_dir)}
 
-    @property
+    @lazy_attribute
     def gcc_path(self):
-        if self._gcc_path is None:
-            try:
-                import subprocess
-                gcc_path = subprocess.check_output(('which', 'gcc'), universal_newlines=True).strip()
-            except subprocess.CalledProcessError as e:
-                from cbob.error import CbobError
-                raise CbobError("GCC wasn't found ('which gcc' wasn't successful") from e
-            self._gcc_path = gcc_path
-        return self._gcc_path
+        try:
+            import subprocess
+            gcc_path = subprocess.check_output(('which', 'gcc'), universal_newlines=True).strip()
+        except subprocess.CalledProcessError as e:
+            from cbob.error import CbobError
+            raise CbobError("GCC wasn't found ('which gcc' wasn't successful") from e
+        return gcc_path
 
     def new_target(self, target_name):
         make_default = not islink(join(self.dirs.targets, "_default"))
@@ -71,7 +64,7 @@ class Project(object):
         if make_default:
             os.symlink(target_name, join(self.dirs.targets, "_default"))
 
-        self._targets = None
+        self.targets = None
         logging.info("Added new target '{}'".format(target_name))
 
     def delete_target(self, target_name):
@@ -128,11 +121,11 @@ class Project(object):
 
     def subprojects_add(self, subproject_globs):
         self._add_something_from_globs(self.dirs.subprojects, subproject_globs, "subproject", [self._subproject_check])
-        self._subprojects = None
+        self.subprojects = None
 
     def subprojects_remove(self, subproject_globs):
         self._remove_something_from_globs(self.dirs.subprojects, subproject_globs, "subproject")
-        self._subprojects = None
+        self.subprojects = None
 
     def get_target(self, target_name=None):
         if target_name is None:

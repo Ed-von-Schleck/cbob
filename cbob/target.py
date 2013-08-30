@@ -7,22 +7,19 @@ from os.path import basename, join, islink, normpath, isdir, isfile, expandvars,
 import subprocess
 
 from cbob.helpers import read_symlink, make_rel_symlink, print_information, log_summary
-from cbob.definitions import SOURCE_FILE_EXTENSIONS, HOOKS, SYNONYMS_FOR_OFF, SYNONYMS_FOR_ON
+from cbob.definitions import SOURCE_FILE_EXTENSIONS, HOOKS, SYNONYMS
 from cbob.node import SourceNode, HeaderNode
 from cbob.paths import DirNamespace
+from cbob.lazyattribute import lazy_attribute
 
 class Target(object):
     def __init__(self, path, project):
         self.path = path
         self.name = basename(path)
         self.project = project
-        self._sources = None
-        self._dependencies = None
-        self._compiler = None
-        self._bin_dir = None
-        self._language = None
-        self._plugins = None
-        self._options = None
+        self._dep_graph = None
+        self._worker_pool = None
+        self._worker_jobs = None
         self.dirs = DirNamespace(path, {
             "sources": "sources",
             "dependencies": "dependencies",
@@ -31,69 +28,85 @@ class Target(object):
             "objects": ".objects",
             "precompiled_headers": ".precompiled_headers"})
 
-    @property
+    @lazy_attribute
     def sources(self):
-        if self._sources is None:
-            self._sources = [read_symlink(name, self.dirs.sources) for name in os.listdir(self.dirs.sources)]
-        return self._sources
+        self._dep_graph = None
+        read_targets_symlink = partial(read_symlink, directory=self.dirs.sources)
+        return list(map(read_targets_symlink, os.listdir(self.dirs.sources)))
 
-    @property
+
+    @lazy_attribute
     def dependencies(self):
-        if self._dependencies is None:
-            self._dependencies = {raw_dep_name: get_target(raw_dep_name) for raw_dep_name in os.listdir(self.dirs.dependencies)}
-        return self._dependencies
+        return {raw_dep_name: get_target(raw_dep_name) for raw_dep_name in os.listdir(self.dirs.dependencies)}
 
-    @property
+    @lazy_attribute
     def compiler(self):
-        if self._compiler is None:
-            with self.assume_configured():
-                self._compiler = os.readlink(join(self.path, "compiler"))
-        return self._compiler
+        with self.assume_configured():
+            return os.readlink(join(self.path, "compiler"))
 
-    @property
+    @lazy_attribute
     def bin_dir(self):
-        if self._bin_dir is None:
-            with self.assume_configured():
-                self._bin_dir= os.readlink(join(self.path, "bin_dir"))
-        return self._bin_dir
+        with self.assume_configured():
+            return os.readlink(join(self.path, "bin_dir"))
 
-    @property
+    @lazy_attribute
     def language(self):
-        if self._language is None:
-            self._language = self._guess_target_language()
-        return self._language
+        return self._guess_target_language()
 
-    @property
+    @lazy_attribute
     def plugins(self):
-        if self._plugins is None:
-            import imp
-            plugins_dir = self.dirs.plugins
-            self._plugins = {}
-            for filename in os.listdir(plugins_dir):
-                abs_filename = read_symlink(filename, plugins_dir)
-                path, filename = split(abs_filename)
-                name, ext = splitext(filename)
-                fp, fn, desc = imp.find_module(name, [path])
-                plugin_module = imp.load_module(name, fp, fn, desc)
-                for hook, func in vars(plugin_module).items():
-                    if hook in HOOKS:
-                        if not hook in self._plugins:
-                            self._plugins[hook] = {}
-                        self._plugins[hook][abs_filename] = func
-        return self._plugins
+        import imp
+        plugins_dir = self.dirs.plugins
+        plugins = {}
+        for filename in os.listdir(plugins_dir):
+            abs_filename = read_symlink(filename, plugins_dir)
+            path, filename = split(abs_filename)
+            name, ext = splitext(filename)
+            fp, fn, desc = imp.find_module(name, [path])
+            plugin_module = imp.load_module(name, fp, fn, desc)
+            for hook, func in vars(plugin_module).items():
+                if hook in HOOKS:
+                    if not hook in plugins:
+                        plugins[hook] = {}
+                    plugins[hook][abs_filename] = func
+        return plugins
+
+    @lazy_attribute
+    def options(self):
+        options = {}
+        for name in os.listdir(self.dirs.options):
+            options[name] = {}
+            this_option_dir = join(self.dirs.options, name)
+            for choice in os.listdir(this_option_dir):
+                with open(join(this_option_dir, choice), "r") as choice_f:
+                    options[name][choice] = choice_f.readlines()
+        return options
 
     @property
-    def options(self):
-        if self._options == None:
-            self._options = {}
-            for name in os.listdir(self.dirs.options):
-                self._options[name] = {}
-                this_option_dir = join(self.dirs.options, name)
-                for choice in os.listdir(this_option_dir):
-                    with open(join(this_option_dir, choice), "r") as choice_f:
-                        self._options[name][choice] = choice_f.readlines()
+    def dep_graph(self):
+        if self._dep_graph == None:
+            from cbob.dep_graph import DepGraph
+            self._dep_graph = DepGraph(self)
+        return self._dep_graph
 
-        return self._options
+    @property
+    def worker_pool(self):
+        if self._worker_pool == None:
+            from multiprocessing.pool import ThreadPool
+            self._worker_pool = ThreadPool(self.worker_jobs)
+        return self._worker_pool
+
+    @property
+    def worker_jobs(self):
+        return self._worker_jobs
+
+    @worker_jobs.setter
+    def worker_jobs(self, value):
+        self._worker_jobs = value
+        if self._worker_pool is not None:
+            self._worker_pool.close()
+            self._worker_pool.join()
+            self._worker_pool = None
 
     def _source_filetype_check(self, file_name, abs_file_path, symlink_path):
         if not splitext(file_name)[1] in SOURCE_FILE_EXTENSIONS:
@@ -105,12 +118,12 @@ class Target(object):
     def add_sources(self, source_globs):
         self.run_plugins("pre_add")
         self._add_something_from_globs("sources", source_globs, "file", [self._source_filetype_check])
-        self._sources = None
+        self.sources = None
         self.run_plugins("post_add")
     
     def remove_sources(self, source_globs):
         self._remove_something_from_globs("sources", source_globs, "file")
-        self._sources = None
+        self.sources = None
 
     def list_(self):
         print_information("Sources", self.sources)
@@ -131,7 +144,7 @@ class Target(object):
             make_rel_symlink(dep_target.path, symlink_path)
             added_deps.append(raw_dep)
         log_summary(added_deps, "dependency", added=True, target_name=self.name, plural="dependencies")
-        self._dependencies = None
+        self.dependencies = None
 
     def dependencies_remove(self, dependencies):
         removed_deps = []
@@ -145,18 +158,18 @@ class Target(object):
             removed_deps.append(raw_dep)
 
         log_summary(removed_deps, "dependency", added=False, target_name=self.name, plural="dependencies")
-        self._dependencies = None
+        self.dependencies = None
 
     def dependencies_list(self):
         print_information("Dependencies", self.dependencies)
 
     def plugins_add(self, plugin_globs):
         self._add_something_from_globs("plugins", plugin_globs, "plugin")
-        self._plugins = None
+        self.plugins = None
         
     def plugins_remove(self, plugin_globs):
         self._remove_something_from_globs("plugins", plugin_globs, "plugin")
-        self._plugins = None
+        self.plugins = None
 
     def plugins_list(self):
         print("Plugins:")
@@ -181,21 +194,36 @@ class Target(object):
             from cbob.error import CbobError
             raise CbobError("Option '{}' for target '{}' already exists.".format(name, self.name)) from e
         for choice in choices:
-            if choice in SYNONYMS_FOR_ON:
-                choice = "on"
-            elif choice in SYNONYMS_FOR_OFF:
-                choice = "off"
+            for word, synonyms in SYNONYMS:
+                if choice in synonyms:
+                    choice = word
+                    break
             open(join(new_option_dir, choice), "a").close()
 
-    def options_edit(self, option, choice, editor):
+    def options_edit(self, option, choice, add, editor):
         option_dir = join(self.dirs.options, option)
         if not isdir(option_dir):
             from cbob.error import OptionDoesntExistError 
             raise OptionDoesntExistError(self.name, option)
+        for word, synonyms in SYNONYMS:
+            if choice in synonyms:
+                choice = word
+                break
+
         choice_filename = join(option_dir, choice)
         if not isfile(choice_filename):
-            from cbob.error import ChoiceDoesntExistError
-            raise ChoiceDoesntExistError(self.name, option, choice)
+            answer = ""
+            if add == "ask":
+                answer = input("The choice '{}' for option '{}' does not exist. Create it? [y/N] ".format(choice, option))
+            if add in SYNONYMS["off"] and answer != "y":
+                from cbob.error import ChoiceDoesntExistError
+                raise ChoiceDoesntExistError(self.name, option, choice)
+            elif add in SYNONYMS["on"] or answer == "y":
+                open(choice_filename, "a").close()
+            else:
+                from cbob.error import CbobError
+                raise CbobError("Unknown argument for add: '{}'.".format(add))
+
         if editor is None:
             editor = expandvars("$EDITOR")
             if editor == "$EDITOR":
@@ -235,7 +263,6 @@ class Target(object):
         self._build_self(jobs, oneshot, keep_going)
 
     def _build_self(self, jobs, oneshot, keep_going):
-        from multiprocessing.pool import ThreadPool
         self.run_plugins("pre_build")
         # Bail out if there are no sources -
         # there is no need for a virtual target to be fully configured.
@@ -248,24 +275,12 @@ class Target(object):
             from cbob.error import NotConfiguredError
             raise NotConfiguredError(self.name)
 
-        # Here the actual heavy lifting happens.
-        # First off, if a `jobs` parameter is given, it's passed on from the argument parser as a list.
-        # We take the first element of it. If its `None`, then `multiprocessing.Pool` will use as many
-        # processes as there are CPUs.
-        if jobs is not None:
-            jobs = jobs[0]
+        self.worker_jobs = jobs
 
-        #TODO: Profile if a `ProcessPool` might be better (that's doubtful, though).
-        #TODO: Investigate if the `concurrent.future` package might offer some advantage.
-        pool = ThreadPool(jobs)
-        
         logging.info("calculating dependencies ...")
-        # One might argue that a 'Graph' class should exists and a corresponding 'graph' object should be
-        # instanciated here. Tried it; it's somewhat painful to make it reasonably self-contained (needs
-        # to know about configuration when reading header output from the gcc, which it needs to
-        # know about, ...).
 
-        source_nodes = self._calculate_dependencies(oneshot, pool)
+        #source_nodes = self._calculate_dependencies()
+        source_nodes = self.dep_graph.roots
         logging.info("done.")
 
         logging.info("determining files for recompilation ...")
@@ -295,13 +310,14 @@ class Target(object):
                 compile_func = partial(
                         _compile,
                         compiler_path=self.compiler)
-                for source_file, result in pool.imap_unordered(compile_func, dirty_headers):
+                for source_file, result in self.worker_pool.imap_unordered(compile_func, dirty_headers):
                     if result != 0:
                         if keep_going:
                             logging.warning("compilation of header '{}' failed".format(source_file))
                             failed = True
                         else:
-                            exit(result)
+                            from cbob.error import CbobError
+                            raise CbobError("compilation of header '{}' failed".format(source_file))
                 logging.info("done.")
 
             # compile sources
@@ -311,7 +327,7 @@ class Target(object):
                     compiler_path=self.compiler,
                     c_switch=True,
                     include_pch=True)
-            for source_file, result in pool.imap_unordered(compile_func, dirty_sources):
+            for source_file, result in self.worker_pool.imap_unordered(compile_func, dirty_sources):
                 if result != 0:
                     if keep_going:
                         logging.warning("compilation of file '{}' failed".format(source_file))
@@ -340,9 +356,9 @@ class Target(object):
             logging.info("Nothing to do.")
         self.run_plugins("post_build")
 
-    def _calculate_dependencies(self, oneshot, pool):
+    def _calculate_dependencies(self):
         from itertools import zip_longest
-        source_node_index = {}
+        source_nodes = []
         header_node_index = {}
         # This is somewhat straight-forward if you have ever written a stream-parser (like SAX) in that we maintain a stack
         # of where we currently sit in the tree.
@@ -350,20 +366,18 @@ class Target(object):
         # we only skip a node if it was in another node's dependencies - but note how, when we process a node, we don't add
         # an edge to that very node, but to the node one layer *down* in the stack. Think about it for a while, then it makes
         # sense.
-        processed_nodes = set() if not oneshot else None
+        processed_nodes = set()
 
         get_dep_info = partial(_get_dep_info, gcc_path=self.project.gcc_path)
-        for file_path, deps in pool.imap_unordered(get_dep_info, self.sources):
+        for file_path, deps in self.worker_pool.imap_unordered(get_dep_info, self.sources):
             node = SourceNode(file_path, self)
-            source_node_index[file_path] = node
+            source_nodes.append(node)
             parent_nodes_stack = [node]
 
             includes = []
 
             for current_depth, dep_path in deps:
                 includes.append("#include \"" + dep_path + "\"\n")
-                if oneshot:
-                    continue
                 if dep_path in header_node_index:
                     current_node = header_node_index[dep_path]
                     if current_node in processed_nodes:
@@ -381,17 +395,14 @@ class Target(object):
             # `#include`s of that source file. This is the `node.h_path`. It is saved in one
             # of *cbob*s mysterious directories. After we processed a source file, we check if it is
             # up to date by doing a line-by-line comparison with a newly created `#include` list.
-            if not oneshot:
-                overwrite_header = False
-                try:
-                    with open(node.h_path, "r") as uncompiled_header:
-                        for newline, oldline in zip_longest(includes, uncompiled_header):
-                            if newline != oldline:
-                                overwrite_header = True
-                                break
-                except IOError:
-                    overwrite_header = True
-            else:
+            overwrite_header = False
+            try:
+                with open(node.h_path, "r") as uncompiled_header:
+                    for newline, oldline in zip_longest(includes, uncompiled_header):
+                        if newline != oldline:
+                            overwrite_header = True
+                            break
+            except IOError:
                 overwrite_header = True
 
             # It the uncompiled header file changed, we save it and delete any existing precompiled header.
@@ -403,7 +414,7 @@ class Target(object):
                 except OSError:
                     # It's OK if it didn't work; it just means that it wasn't there in the first place
                     pass
-        return source_node_index.values()
+        return source_nodes
 
     def _guess_target_language(self):
         for file_name in self.sources:
@@ -420,24 +431,24 @@ class Target(object):
         #    auto = True
         if compiler is not None:
             os.symlink(compiler, join(self.path, "compiler"))
-            self._compiler = None
+            self.compiler = None
         if bin_dir is not None:
             os.symlink(bin_dir, join(self.path, "bin_dir"))
-            self._bin_dir = None
+            self.bin_dir = None
         if auto:
             if compiler is None:
                 compiler_symlink = self._check_prepare_symlink("compiler", "compiler", force)
                 if compiler_symlink is not None:
                     compiler_path = self._find_compiler_path()
                     os.symlink(compiler_path, compiler_symlink)
-                    self._compiler = None
+                    self.compiler = None
             if bin_dir is None:
                 bin_dir_symlink = self._check_prepare_symlink("bin_dir", "binary output directory", force)
                 if bin_dir_symlink is not None:
                     assumed_bindir = join(self.project.root_path, "bin")
                     bindir_auto = assumed_bindir if isdir(assumed_bindir) else self.project.root_path
                     os.symlink(bindir_auto, bin_dir_symlink)
-                    self._bin_dir = None
+                    self.bin_dir = None
         logging.info("compiler: '{}', "
                      "binary output directory: '{}'".format(self.compiler, self.bin_dir))
 
@@ -461,21 +472,21 @@ class Target(object):
                     logging.debug("determined C compiler path from $CC environment variable")
                     compiler_path = path_from_var
                 else:
-                    logging.debug("determined C compiler path from `which gcc`")
-                    compiler_path = subprocess.check_output(["which", "gcc"]).strip()
+                    logging.debug("determined C compiler path from `which cc`")
+                    compiler_path = subprocess.check_output(["which", "cc"]).strip()
             elif lang == "C++":
                 if path_from_var != "$CXX":
                     logging.debug("determined C compiler path from $CXX environment variable")
                     compiler_path = path_from_var
                 else:
-                    logging.debug("determined C compiler path from `which g++`")
-                    compiler_path = subprocess.check_output(["which", "g++"]).strip()
+                    logging.debug("determined C compiler path from `which c++`")
+                    compiler_path = subprocess.check_output(["which", "c++"]).strip()
             else:
                 from cbob.error import CbobError
-                raise CbobError("unable to guess the language of the target's sources. Please configure manually")
+                raise CbobError("Unable to guess the language of the target's sources. Please configure manually")
         except subprocess.CalledProcessError:
             from cbob.error import CbobError
-            raise CbobError("no compiler for language '{}' found (might be cbob's fault).".format(self.language))
+            raise CbobError("No compiler for language '{}' found (might be cbob's fault).".format(self.language))
         return compiler_path
 
     def _clean_dir(self, dir_path):
@@ -521,28 +532,6 @@ class Target(object):
         except OSError as e:
             from cbob.error import NotConfiguredError
             raise NotConfiguredError(self.name) from e
-
-def _get_dep_info(file_path, gcc_path):
-    # The options used:
-    # * -H: prints the dotted header information
-    # * -w: suppressed warnings
-    # * -E: makes GCC stop after the preprocessing (no compilation)
-    # * -P: removes comments
-    cmd = (gcc_path, "-H", "-w", "-E", "-P", file_path)
-    # For some reason gcc outputs the header information over `stderr`.
-    # Not that this is documented anywhere ...
-    with subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True) as process:
-        out, err = process.communicate()
-    # The output looks like
-    #     . inc1.h
-    #     .. inc1inc1.h
-    #     . inc2.h
-    # etc., with inc1inc1.h being included by inc1.h. In other words, the number of dots
-    # indicates the level of nesting. Also, there are lots of lines of no interest to us.
-    # Let's ignore them.
-    raw_deps = (line.partition(" ") for line in err.split("\n") if line and line[0] == ".")
-    deps = [(len(dots), normpath(rest)) for (dots, sep, rest) in raw_deps]
-    return file_path, deps
 
 def _compile(source, compiler_path, c_switch=False, include_pch=False):
     # This function is later used as a partial (curried) function, with the `file_path` parameter being mapped

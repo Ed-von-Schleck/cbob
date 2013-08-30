@@ -91,10 +91,10 @@ def options_new(name, target=None, choices=None):
     current_target = cbob.target.get_target(target)
     current_target.options_new(name, choices)
 
-def options_edit(option, choice, editor=None, target=None):
+def options_edit(option, choice, add="ask", editor=None, target=None):
     import cbob.target
     current_target = cbob.target.get_target(target)
-    current_target.options_edit(option, choice, editor)
+    current_target.options_edit(option, choice, add, editor)
 
 def options_info(target=None):
     import cbob.target
